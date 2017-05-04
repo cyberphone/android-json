@@ -2,22 +2,28 @@ package org.webpki.androidjsondemo;
 
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
+
 import android.webkit.JavascriptInterface;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 
 import org.spongycastle.jce.provider.BouncyCastleProvider;
 
-import org.webpki.crypto.AsymKeySignerInterface;
-import org.webpki.crypto.AsymSignatureAlgorithms;
-import org.webpki.crypto.SignatureWrapper;
-import org.webpki.crypto.SignerInterface;
+import org.webpki.crypto.MACAlgorithms;
+import org.webpki.crypto.SymKeySignerInterface;
+import org.webpki.crypto.SymKeyVerifierInterface;
+
 import org.webpki.json.JSONAsymKeySigner;
 import org.webpki.json.JSONObjectWriter;
 import org.webpki.json.JSONSignatureDecoder;
 import org.webpki.json.JSONParser;
 import org.webpki.json.JSONSignatureTypes;
+import org.webpki.json.JSONSymKeySigner;
+import org.webpki.json.JSONSymKeyVerifier;
 import org.webpki.json.JSONX509Signer;
+
+import org.webpki.util.ArrayUtil;
+import org.webpki.util.Base64URL;
 
 import java.io.IOException;
 import java.security.GeneralSecurityException;
@@ -33,6 +39,16 @@ import java.security.cert.X509Certificate;
 public class MainActivity extends AppCompatActivity {
 
     enum SIG_TYPES {EC_KEY, RSA_KEY, PKI, SYMMETRIC_KEY};
+
+    static final byte[] SYMMETRIC_KEY = {
+            (byte) 0xF4, (byte) 0xC7, (byte) 0x4F, (byte) 0x33,
+            (byte) 0x98, (byte) 0xC4, (byte) 0x9C, (byte) 0xF4,
+            (byte) 0x6D, (byte) 0x93, (byte) 0xEC, (byte) 0x98,
+            (byte) 0x18, (byte) 0x83, (byte) 0x26, (byte) 0x61,
+            (byte) 0xA4, (byte) 0x0B, (byte) 0xAE, (byte) 0x4D,
+            (byte) 0x20, (byte) 0x4D, (byte) 0x75, (byte) 0x50,
+            (byte) 0x36, (byte) 0x14, (byte) 0x10, (byte) 0x20,
+            (byte) 0x74, (byte) 0x34, (byte) 0x69, (byte) 0x09 };
 
     static final String RSA_KEYPAIR = "{" +
         "\"kty\":\"RSA\"," +
@@ -74,29 +90,30 @@ public class MainActivity extends AppCompatActivity {
 
     static final String EC_CERTIFICATE = "{\"certificatePath\": [" +
     "\"MIIBtTCCAVmgAwIBAgIGAU-H595vMAwGCCqGSM49BAMCBQAwLzELMAkGA1UEBhMCRVUxIDAeBgNVBA" +
-      "MTF1BheW1lbnQgTmV0d29yayBTdWIgQ0EzMB4XDTE0MDEwMTAwMDAwMFoXDTIwMDcxMDA5NTk1OVowMTEL" +
-      "MAkGA1UEBhMCRlIxDTALBgNVBAUTBDQ1MDExEzARBgNVBAMTCm15YmFuay5jb20wWTATBgcqhkjOPQ" +
-      "IBBggqhkjOPQMBBwNCAASjhSNHJyRmQi5U-r7WkNns0D6b1n1gQybglCvyXgIA2RCSJXJKHZrw37giKmGq" +
-      "X-4cXU3x__zOQXN1U48VAwNvo10wWzAJBgNVHRMEAjAAMA4GA1UdDwEB_wQEAwIHgDAdBgNVHQ4EFg" +
-      "QUOdV3H3r6TufkQh-dqhcXMrjUY2kwHwYDVR0jBBgwFoAUy0fdXq1oJ6GFAJo10qx609KDARAwDAYIKoZI" +
-    "zj0EAwIFAANIADBFAiEAluqzuTTzVBG74AoALaWRsRn9QALg2N6C3sIlztm6sPoCID1ZnGnTrhz-Codxu" +
-    "Gvg7fkOVfdffdSuEdyhQXemGtT4\", " +
+      "MTF1BheW1lbnQgTmV0d29yayBTdWIgQ0EzMB4XDTE0MDEwMTAwMDAwMFoXDTIwMDcxMDA5NTk1OVow" +
+      "MTELMAkGA1UEBhMCRlIxDTALBgNVBAUTBDQ1MDExEzARBgNVBAMTCm15YmFuay5jb20wWTATBgcqhk" +
+      "jOPQIBBggqhkjOPQMBBwNCAASjhSNHJyRmQi5U-r7WkNns0D6b1n1gQybglCvyXgIA2RCSJXJKHZrw" +
+      "37giKmGqX-4cXU3x__zOQXN1U48VAwNvo10wWzAJBgNVHRMEAjAAMA4GA1UdDwEB_wQEAwIHgDAdBg" +
+      "NVHQ4EFgQUOdV3H3r6TufkQh-dqhcXMrjUY2kwHwYDVR0jBBgwFoAUy0fdXq1oJ6GFAJo10qx609KD" +
+      "ARAwDAYIKoZIzj0EAwIFAANIADBFAiEAluqzuTTzVBG74AoALaWRsRn9QALg2N6C3sIlztm6sPoCID" +
+      "1ZnGnTrhz-CodxuGvg7fkOVfdffdSuEdyhQXemGtT4\", " +
 
-    "\"MIIDcjCCAVqgAwIBAgIBAzANBgkqhkiG9w0BAQ0FADAwMQswCQYDVQQGEwJVUzEhMB8GA1UEAxM" +
-            "YUGF5bWVudCBOZXR3b3JrIFJvb3QgQ0ExMB4XDTEyMDcxMDEwMDAwMFoXDTI1MDcxMDA5NTk1OVowLzELMAkG" +
-    "A1UEBhMCRVUxIDAeBgNVBAMTF1BheW1lbnQgTmV0d29yayBTdWIgQ0EzMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEc" +
-            "X8CYrYFoQhPbTci93W5qyCx0i0H-FvmXIvH5XNBlnNLfPkRacqn0PRFNn4Z4o3BVxI3" +
-    "x5yob9C7FqpKslcCgKNjMGEwDwYDVR0TAQH_BAUwAwEB_zAOBgNVHQ8BAf8EBAMCAQYwHQYDVR0" +
-            "OBBYEFMtH3V6taCehhQCaNdKsetPSgwEQMB8GA1UdIwQYMBaAFELvwS_Fk7IfHMWJeu-yhGdM-5EiMA0GCSqG" +
-            "SIb3DQEBDQUAA4ICAQBNQdIOSU2fB5JjCO9Q0mCfOxDXFihMKSiOanAJ_r2rxGN7Uprw32JPsJnQhuxbrwmniKg" +
-                    "CmBVD6Jak4GtHSLVvJPjpf_Pe7pUbyMb6iNNeV3SmJvsHoE2m5WdSGxjIPxK4NOBv3Mm3Ib1_" +
-    "kxyVceegHEHRUk5IXyQUNV1sUsxIypELjC8bAIvnMj_J1FlP8nsfehbibT3XH04uvX9dgNGexpz8BDLa0fEpLzrKoyMt" +
-                    "UbSwg88_WsdPnkvp1fhiwCF9GpIHwsXi3Nv-Wdgdyn-hKFQe6sP2FmsPDiI2qWqX7fEs" +
-    "0VN5Uo2oI5Q2T6673JiZnkycXYLNIRpc06KSTcs8B45u5NMAyvLx3l4S8My-HK4nfiqbF3TPVGJkq4aXAAZn" +
-                    "hVcQTrO71tQ0BJMibKjz6sylBEnhlFQs3ICcesaGVXV3JVbwtf_OkAUUUduYWOmUZU5ng3vNJV0o" +
-    "fqfvoNcBlVsrWpFNqImy2-icUxiad_8--ortiq4WG594Ap52CqXt7K8UcZaMLDAj2COOmo1gy9iUjzgyzSqnYye2Gqr72" +
-                    "ts5jd8B8wkM1rM0JDM6DvCyJgHVvc8VTNE7Mt2Mu9XsofQkdLdDgrPuo6AV88g1BGk7" +
-    "cY0FJMJFoBAlrj98A4KslbeGBV7AUGuzvS-w1VA6dRH6_5Fv2eSHXW6pzA_D8Q\"]}";
+    "\"MIIDcjCCAVqgAwIBAgIBAzANBgkqhkiG9w0BAQ0FADAwMQswCQYDVQQGEwJVUzEhMB8GA1UEAxMYUG" +
+      "F5bWVudCBOZXR3b3JrIFJvb3QgQ0ExMB4XDTEyMDcxMDEwMDAwMFoXDTI1MDcxMDA5NTk1OVowLzEL" +
+      "MAkGA1UEBhMCRVUxIDAeBgNVBAMTF1BheW1lbnQgTmV0d29yayBTdWIgQ0EzMFkwEwYHKoZIzj0CAQ" +
+      "YIKoZIzj0DAQcDQgAEcX8CYrYFoQhPbTci93W5qyCx0i0H-FvmXIvH5XNBlnNLfPkRacqn0PRFNn4Z" +
+      "4o3BVxI3x5yob9C7FqpKslcCgKNjMGEwDwYDVR0TAQH_BAUwAwEB_zAOBgNVHQ8BAf8EBAMCAQYwHQ" +
+      "YDVR0OBBYEFMtH3V6taCehhQCaNdKsetPSgwEQMB8GA1UdIwQYMBaAFELvwS_Fk7IfHMWJeu-yhGdM" +
+      "-5EiMA0GCSqGSIb3DQEBDQUAA4ICAQBNQdIOSU2fB5JjCO9Q0mCfOxDXFihMKSiOanAJ_r2rxGN7Up" +
+      "rw32JPsJnQhuxbrwmniKgCmBVD6Jak4GtHSLVvJPjpf_Pe7pUbyMb6iNNeV3SmJvsHoE2m5WdSGxjI" +
+      "PxK4NOBv3Mm3Ib1_kxyVceegHEHRUk5IXyQUNV1sUsxIypELjC8bAIvnMj_J1FlP8nsfehbibT3XH0" +
+      "4uvX9dgNGexpz8BDLa0fEpLzrKoyMtUbSwg88_WsdPnkvp1fhiwCF9GpIHwsXi3Nv-Wdgdyn-hKFQe" +
+      "6sP2FmsPDiI2qWqX7fEs0VN5Uo2oI5Q2T6673JiZnkycXYLNIRpc06KSTcs8B45u5NMAyvLx3l4S8M" +
+      "y-HK4nfiqbF3TPVGJkq4aXAAZnhVcQTrO71tQ0BJMibKjz6sylBEnhlFQs3ICcesaGVXV3JVbwtf_O" +
+      "kAUUUduYWOmUZU5ng3vNJV0ofqfvoNcBlVsrWpFNqImy2-icUxiad_8--ortiq4WG594Ap52CqXt7K" +
+      "8UcZaMLDAj2COOmo1gy9iUjzgyzSqnYye2Gqr72ts5jd8B8wkM1rM0JDM6DvCyJgHVvc8VTNE7Mt2M" +
+      "u9XsofQkdLdDgrPuo6AV88g1BGk7cY0FJMJFoBAlrj98A4KslbeGBV7AUGuzvS-w1VA6dRH6_5Fv2e" +
+      "SHXW6pzA_D8Q\"]}";
 
     static final String HTML_HEADER = "<html><head><style type='text/css'>\n" +
                                       "body {margin:12pt;font-size:10pt;color:#000000;font-family:Roboto;background-color:white}\n" +
@@ -207,10 +224,10 @@ public class MainActivity extends AppCompatActivity {
             "    \"publicKey\": {\n" +
             "      \"kty\": \"EC\",\n" +
             "      \"crv\": \"P-256\",\n" +
-            "      \"x\": \"vlYxD4dtFJOp1_8_QUcieWCW-4KrLMmFL2rpkY1bQDs\",\n" +
-            "      \"y\": \"fxEF70yJenP3SPHM9hv-EnvhG6nXr3_S-fDqoj-F6yM\"\n" +
+            "      \"x\": \"o4UjRyckZkIuVPq-1pDZ7NA-m9Z9YEMm4JQr8l4CANk\",\n" +
+            "      \"y\": \"EJIlckodmvDfuCIqYapf7hxdTfH__M5Bc3VTjxUDA28\"\n" +
             "    },\n" +
-            "    \"value\": \"hp6af4GTZMr2fM8A1QeanPD4IcvlV0ToiKA0NDrtsmyGxDQST24ehsAVRzVHXSGM1O1GG0xO3ev4LbvNNRpH5g\"\n" +
+            "    \"value\": \"UuxFcJx3G5CZDwOLqViKty8KF4ABNBdPXZEDDeMRPGW9wHUHvP7Db0t30cJv4wl8FKaSNASLJ_XBKv0x4LPfhA\"\n" +
             "  }\n" +
             "}");
     }
@@ -240,19 +257,12 @@ public class MainActivity extends AppCompatActivity {
         PrintWriter printerWriter = new PrintWriter(baos);
         e.printStackTrace(printerWriter);
         printerWriter.flush();
-        StringBuffer msg = new StringBuffer();
+        String msg = "Error description not available";
         try {
-             for (char c : baos.toString("utf-8").toCharArray()) {
-                if (c == '\n') {
-                    msg.append("%0A");
-                } else {
-                    msg.append(c);
-                }
-            }
+             msg = htmlIze(baos.toString("utf-8"));
         } catch (Exception e2) {
-            msg.append("N/A");
         }
-        loadHtml("", "ERROR", "<pre style='color:red'>" + msg.toString() + "</pre>");
+        loadHtml("", "ERROR", "<pre style='color:red'>" + msg + "</pre>");
     }
 
     @JavascriptInterface
@@ -268,9 +278,22 @@ public class MainActivity extends AppCompatActivity {
                     key = signature.getCertificatePath()[0].toString();
                     break;
                 default:
-                    key = "Symmetric key";
+                    signature.verify(new JSONSymKeyVerifier(new SymKeyVerifierInterface() {
+
+                        @Override
+                        public boolean verifyData(byte[] data,
+                                                  byte[] digest,
+                                                  MACAlgorithms algorithm,
+                                                  String keyId) throws IOException {
+                            return ArrayUtil.compare(algorithm.digest(SYMMETRIC_KEY, data), digest);
+                        }
+                    }).permitKeyId(true));
+                    key = Base64URL.encode(SYMMETRIC_KEY);
             }
-            loadHtml("", "Valid Signature", "<pre>" + htmlIze(key) + "</pre>");
+            loadHtml("",
+                    "Valid Signature!",
+                    "<p><i>Signature type:</i> " + signature.getSignatureType().toString() +
+                    "</p><p><i>Signature key:</i></p><pre style='color:green'>" + htmlIze(key) + "</pre>");
         } catch (Exception e) {
             errorViev(e);
         }
@@ -287,40 +310,26 @@ public class MainActivity extends AppCompatActivity {
                     final KeyPair keyPair =
                             JSONParser.parse(sigType == SIG_TYPES.RSA_KEY ?
                                                               RSA_KEYPAIR : EC_KEYPAIR).getKeyPair();
-                    writer.setSignature(new JSONAsymKeySigner(new AsymKeySignerInterface() {
-                        @Override
-                        public byte[] signData(byte[] data, AsymSignatureAlgorithms algorithm) throws IOException {
-                            try {
-                                return new SignatureWrapper(algorithm, keyPair.getPrivate()).update(data).sign();
-                            } catch (GeneralSecurityException e) {
-                                throw new IOException(e);
-                            }
-                        }
-                        @Override
-                        public PublicKey getPublicKey() throws IOException {
-                            return keyPair.getPublic();
-                        }
-                    }));
+                    writer.setSignature(new JSONAsymKeySigner(keyPair.getPrivate(), keyPair.getPublic(), null));
                     break;
                 case PKI:
-                    final PrivateKey privateKey =
-                            JSONParser.parse(EC_KEYPAIR).getKeyPair().getPrivate();
-
-                    writer.setSignature(new JSONX509Signer(new SignerInterface() {
-                        @Override
-                        public byte[] signData(byte[] data, AsymSignatureAlgorithms algorithm) throws IOException {
-                            try {
-                                return new SignatureWrapper(algorithm, privateKey).update(data).sign();
-                            } catch (GeneralSecurityException e) {
-                                throw new IOException(e);
-                            }
-                        }
-                        @Override
-                        public X509Certificate[] getCertificatePath() throws IOException {
-                            return JSONParser.parse(EC_CERTIFICATE).getCertificatePath();
-                        }
-                    }));
+                    writer.setSignature(new JSONX509Signer(
+                            JSONParser.parse(EC_KEYPAIR).getKeyPair().getPrivate(),
+                            JSONParser.parse(EC_CERTIFICATE).getCertificatePath(),
+                            null));
                     break;
+                default:
+                    writer.setSignature(new JSONSymKeySigner(new SymKeySignerInterface() {
+                        @Override
+                        public byte[] signData(byte[] data) throws IOException {
+                            return getMacAlgorithm().digest(SYMMETRIC_KEY, data);
+                        }
+
+                        @Override
+                        public MACAlgorithms getMacAlgorithm() throws IOException {
+                            return MACAlgorithms.HMAC_SHA256;
+                        }
+                    }).setKeyId("myKey"));
             }
             verifySignature(writer.toString());
         } catch (Exception e) {
