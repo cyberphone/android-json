@@ -112,7 +112,7 @@ public class MainActivity extends AppCompatActivity {
         "\"d\":\"Nq2G4dhDJMQmXSCi_4rIbllXMRQJn6Q1-kDP2BeRUMI\"" +
     "}";
 
-    static final String EC_CERTIFICATE = "{\"certificatePath\": [" +
+    static final String EC_CERTIFICATE = "[" +
     "\"MIIBtTCCAVmgAwIBAgIGAU-H595vMAwGCCqGSM49BAMCBQAwLzELMAkGA1UEBhMCRVUxIDAeBgNVBA" +
       "MTF1BheW1lbnQgTmV0d29yayBTdWIgQ0EzMB4XDTE0MDEwMTAwMDAwMFoXDTIwMDcxMDA5NTk1OVow" +
       "MTELMAkGA1UEBhMCRlIxDTALBgNVBAUTBDQ1MDExEzARBgNVBAMTCm15YmFuay5jb20wWTATBgcqhk" +
@@ -137,7 +137,7 @@ public class MainActivity extends AppCompatActivity {
       "kAUUUduYWOmUZU5ng3vNJV0ofqfvoNcBlVsrWpFNqImy2-icUxiad_8--ortiq4WG594Ap52CqXt7K" +
       "8UcZaMLDAj2COOmo1gy9iUjzgyzSqnYye2Gqr72ts5jd8B8wkM1rM0JDM6DvCyJgHVvc8VTNE7Mt2M" +
       "u9XsofQkdLdDgrPuo6AV88g1BGk7cY0FJMJFoBAlrj98A4KslbeGBV7AUGuzvS-w1VA6dRH6_5Fv2e" +
-      "SHXW6pzA_D8Q\"]}";
+      "SHXW6pzA_D8Q\"]";
 
     static final String HTML_HEADER =
         "<html><head><style type='text/css'>" +
@@ -346,7 +346,7 @@ public class MainActivity extends AppCompatActivity {
                 case PKI:
                     writer.setSignature(new JSONX509Signer(
                             JSONParser.parse(EC_KEYPAIR).getKeyPair().getPrivate(),
-                            JSONParser.parse(EC_CERTIFICATE).getCertificatePath(),
+                            JSONParser.parse(EC_CERTIFICATE).getJSONArrayReader().getCertificatePath(),
                             null));
                     break;
                 default:
