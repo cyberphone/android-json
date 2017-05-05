@@ -26,8 +26,6 @@ import android.webkit.WebView;
 import org.spongycastle.jce.provider.BouncyCastleProvider;
 
 import org.webpki.crypto.MACAlgorithms;
-import org.webpki.crypto.SymKeySignerInterface;
-import org.webpki.crypto.SymKeyVerifierInterface;
 
 import org.webpki.json.JSONAsymKeySigner;
 import org.webpki.json.JSONObjectWriter;
@@ -41,10 +39,7 @@ import org.webpki.json.JSONX509Signer;
 import org.webpki.json.encryption.DataEncryptionAlgorithms;
 import org.webpki.json.encryption.KeyEncryptionAlgorithms;
 
-import org.webpki.util.ArrayUtil;
 import org.webpki.util.Base64URL;
-
-import java.io.IOException;
 
 import java.security.PublicKey;
 import java.security.Security;
@@ -282,16 +277,7 @@ public class MainActivity extends AppCompatActivity {
                     key = signature.getCertificatePath()[0].toString();
                     break;
                 default:
-                    signature.verify(new JSONSymKeyVerifier(new SymKeyVerifierInterface() {
-
-                        @Override
-                        public boolean verifyData(byte[] data,
-                                                  byte[] digest,
-                                                  MACAlgorithms algorithm,
-                                                  String keyId) throws IOException {
-                            return ArrayUtil.compare(algorithm.digest(SYMMETRIC_KEY, data), digest);
-                        }
-                    }).permitKeyId(true));
+                    signature.verify(new JSONSymKeyVerifier(SYMMETRIC_KEY).permitKeyId(true));
                     key = Base64URL.encode(SYMMETRIC_KEY);
             }
             loadHtml("",
@@ -350,17 +336,8 @@ public class MainActivity extends AppCompatActivity {
                             null));
                     break;
                 default:
-                    writer.setSignature(new JSONSymKeySigner(new SymKeySignerInterface() {
-                        @Override
-                        public byte[] signData(byte[] data) throws IOException {
-                            return getMacAlgorithm().digest(SYMMETRIC_KEY, data);
-                        }
-
-                        @Override
-                        public MACAlgorithms getMacAlgorithm() throws IOException {
-                            return MACAlgorithms.HMAC_SHA256;
-                        }
-                    }).setKeyId(MY_KEY));
+                    writer.setSignature(new JSONSymKeySigner(SYMMETRIC_KEY,
+                                                             MACAlgorithms.HMAC_SHA256).setKeyId(MY_KEY));
             }
             verifySignature(writer.toString());
         } catch (Exception e) {

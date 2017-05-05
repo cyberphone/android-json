@@ -12,15 +12,24 @@ import org.junit.runner.RunWith;
 
 import org.spongycastle.jce.provider.BouncyCastleProvider;
 
+import org.webpki.crypto.AsymSignatureAlgorithms;
+import org.webpki.crypto.MACAlgorithms;
+
+import org.webpki.json.JSONAsymKeySigner;
+import org.webpki.json.JSONOutputFormats;
+import org.webpki.json.JSONSignatureDecoder;
+import org.webpki.json.JSONSymKeySigner;
 import org.webpki.json.JSONObjectReader;
 import org.webpki.json.JSONObjectWriter;
 import org.webpki.json.JSONParser;
 
+import org.webpki.json.JSONSymKeyVerifier;
 import org.webpki.json.encryption.DataEncryptionAlgorithms;
 import org.webpki.json.encryption.DecryptionKeyHolder;
 import org.webpki.json.encryption.KeyEncryptionAlgorithms;
 
 import org.webpki.util.ArrayUtil;
+import org.webpki.util.Base64URL;
 
 import java.security.KeyPair;
 import java.security.Security;
@@ -46,31 +55,33 @@ public class InstrumentedTest {
 
     Vector<DecryptionKeyHolder> keys;
 
+    static KeyPair ecPrivateKey;
+    static KeyPair rsaPrivateKey;
+
     @BeforeClass
-    static public void initialize() {
+    static public void initialize() throws Exception {
         appContext = InstrumentationRegistry.getTargetContext();
         Security.insertProviderAt(new BouncyCastleProvider(), 1);
+        ecPrivateKey = getResource(R.raw.ecprivatekey_jwk).getKeyPair();
+        rsaPrivateKey = getResource(R.raw.rsaprivatekey_jwk).getKeyPair();
     }
 
-    JSONObjectReader getResource(int resource) throws Exception {
+    static JSONObjectReader getResource(int resource) throws Exception {
         return JSONParser.parse(ArrayUtil.getByteArrayFromInputStream(appContext.getResources()
                 .openRawResource(resource)));
     }
 
     void decrypt(int resource) throws Exception {
-        if (!ArrayUtil.compare(JEF_TEST_STRING,
-                               getResource(resource).getEncryptionObject().getDecryptedData(keys))) {
-            fail("Decrypt");
-        }
+        assertTrue("Decrypt",
+                   ArrayUtil.compare(JEF_TEST_STRING,
+                                     getResource(resource)
+                                             .getEncryptionObject().getDecryptedData(keys)));
     }
 
     @Test
     public void decryption() throws Exception {
 
         keys = new Vector<DecryptionKeyHolder>();
-
-        KeyPair ecPrivateKey = getResource(R.raw.ecprivatekey_jwk).getKeyPair();
-        KeyPair rsaPrivateKey = getResource(R.raw.rsaprivatekey_jwk).getKeyPair();
 
         keys.add(new DecryptionKeyHolder(ecPrivateKey.getPublic(),
                 ecPrivateKey.getPrivate(),
@@ -113,12 +124,83 @@ public class InstrumentedTest {
                                     rsaPrivateKey : ecPrivateKey).getPublic(),
                             i == 0 ? null : (keyEncryptionAlgorithm.isRsa() ? JEF_RSA_KEY_ID : JEF_EC_KEY_ID),
                             keyEncryptionAlgorithm);
-                    if (!ArrayUtil.compare(JEF_TEST_STRING,
-                            JSONParser.parse(writer.toString()).getEncryptionObject().getDecryptedData(keys))) {
-                        fail(keyEncryptionAlgorithm.toString());
-                    }
+                    assertTrue(keyEncryptionAlgorithm.toString(),
+                            ArrayUtil.compare(JEF_TEST_STRING,
+                                    JSONParser.parse(writer.toString())
+                                            .getEncryptionObject().getDecryptedData(keys)));
                 }
             }
+        }
+
+        assertTrue("Decrypt sym",
+                   ArrayUtil.compare(JEF_TEST_STRING,
+                                     getResource(R.raw.a128cbc_hs256_json)
+                                         .getEncryptionObject().getDecryptedData(Base64URL.decode(JEF_SYM_KEY))));
+    }
+
+    JSONObjectWriter getData() throws Exception {
+        return new JSONObjectWriter(getResource(R.raw.json_data));
+    }
+
+    @Test
+    public void signatures() throws Exception {
+        getResource(R.raw.json_signature).getSignature();
+        String signature =
+                getData().setSignature(new JSONAsymKeySigner(ecPrivateKey.getPrivate(),
+                                                             ecPrivateKey.getPublic(),
+                                                             null)).toString();
+        JSONParser.parse(signature).getSignature();
+        signature =
+                getData().setSignature(new JSONAsymKeySigner(rsaPrivateKey.getPrivate(),
+                                                             rsaPrivateKey.getPublic(),
+                                                             null)).toString();
+        JSONParser.parse(signature).getSignature();
+
+        try {
+            JSONParser.parse(signature.replace("now", "then")).getSignature();
+            fail("verify");
+        } catch (Exception e) {
+        }
+        try {
+            getData().setSignature(new JSONAsymKeySigner(rsaPrivateKey.getPrivate(),
+                                                         ecPrivateKey.getPublic(),
+                                                         null));
+            fail("rsa/ec key");
+        } catch (Exception e) {
+        }
+        try {
+            getData().setSignature(new JSONAsymKeySigner(ecPrivateKey.getPrivate(),
+                                                         rsaPrivateKey.getPublic(),
+                                                         null));
+            fail("ec/rsa key");
+        } catch (Exception e) {
+        }
+        try {
+            getData().setSignature(new JSONAsymKeySigner(ecPrivateKey.getPrivate(),
+                                                         ecPrivateKey.getPublic(),
+                                                         null).setSignatureAlgorithm(AsymSignatureAlgorithms.RSA_SHA256));
+            fail("ec/rsa alg");
+        } catch (Exception e) {
+        }
+
+        JSONObjectReader json = JSONParser.parse(
+                getData().setSignature(new JSONAsymKeySigner(rsaPrivateKey.getPrivate(),
+                        rsaPrivateKey.getPublic(),
+                        null)).toString());
+        json.removeProperty(JSONSignatureDecoder.SIGNATURE_JSON);
+        assertTrue("data", json.toString().equals(getData().toString()));
+        assertTrue("data", json.serializeToString(JSONOutputFormats.NORMALIZED)
+                .equals(getData().serializeToString(JSONOutputFormats.NORMALIZED)));
+
+        signature =
+                getData().setSignature(new JSONSymKeySigner(Base64URL.decode(JEF_SYM_KEY),
+                                                            MACAlgorithms.HMAC_SHA256)).toString();
+        JSONParser.parse(signature).getSignature().verify(new JSONSymKeyVerifier(Base64URL.decode(JEF_SYM_KEY)));
+        try {
+            JSONParser.parse(signature.replace("now", "then"))
+                    .getSignature().verify(new JSONSymKeyVerifier(Base64URL.decode(JEF_SYM_KEY)));
+            fail("verify");
+        } catch (Exception e) {
         }
     }
 
