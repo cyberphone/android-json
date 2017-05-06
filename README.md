@@ -5,4 +5,4 @@ Uses the *source* library described on:<br>
 https://github.com/cyberphone/openkeystore/blob/master/README.md#android-json-jcs-and-jef-support
 
 There is also a pre-built APK which can be downloaded to an Android device or emulator:<br>
-https://cyberphone.github.io/doc/android-json.apk
+https://github.com/cyberphone/android-json/releases/download/1.0/android-json.apk
