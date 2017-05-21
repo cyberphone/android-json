@@ -119,4 +119,10 @@ public enum MACAlgorithms implements SignatureAlgorithms {
         }
         return algorithmPreferences == AlgorithmPreferences.SKS ? sksName : joseName;
     }
+
+
+    @Override
+    public boolean isDeprecated() {
+        return this == HMAC_SHA1;
+    }
 }

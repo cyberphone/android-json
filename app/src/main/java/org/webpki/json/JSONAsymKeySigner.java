@@ -41,7 +41,7 @@ public class JSONAsymKeySigner extends JSONSigner {
     AsymKeySignerInterface signer;
 
     PublicKey publicKey;
-
+    
     /**
      * Constructor for custom crypto solutions.
      * @param signer Handle to implementation

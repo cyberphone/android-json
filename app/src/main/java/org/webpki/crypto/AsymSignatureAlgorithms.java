@@ -24,7 +24,7 @@ public enum AsymSignatureAlgorithms implements SignatureAlgorithms {
                   null,                    "NONEwithRSA",     null,                  true,  true),
       
     RSA_SHA1     ("http://www.w3.org/2000/09/xmldsig#rsa-sha1",           null,              
-                  "1.2.840.113549.1.1.5",  "SHA1withRSA",     HashAlgorithms.SHA1,   true,  true),
+                  "1.2.840.113549.1.1.5",  "SHA1withRSA",     HashAlgorithms.SHA1,   false, true),
       
     RSA_SHA256   ("http://www.w3.org/2001/04/xmldsig-more#rsa-sha256",    "RS256",      
                   "1.2.840.113549.1.1.11", "SHA256withRSA",   HashAlgorithms.SHA256, true,  true),
@@ -143,7 +143,18 @@ public enum AsymSignatureAlgorithms implements SignatureAlgorithms {
                 throw new IOException("There is no JOSE algorithm for: " + toString());
             }
             return sksName;
+        } else if (sksName == null) {
+            if (algorithmPreferences == AlgorithmPreferences.SKS) {
+                throw new IOException("There is no SKS algorithm for: " + toString());
+            }
+            return joseName;
         }
         return algorithmPreferences == AlgorithmPreferences.SKS ? sksName : joseName;
+    }
+
+
+    @Override
+    public boolean isDeprecated() {
+        return RSA_SHA1 == this;
     }
 }

@@ -59,7 +59,7 @@ import org.webpki.util.ISODateTime;
  <a href="https://cyberphone.github.io/doc/security/jcs.html" target="_blank"><b>JCS (JSON Cleartext Signature)</b></a>, 
 <a href="https://cyberphone.github.io/doc/security/jef.html" target="_blank"><b>JEF (JSON Encryption Format)</b></a>
 and
-<a href="https://tools.ietf.org/rfc/rfc7517.txt" target="_blank"><b>JWK</b></a>
+<a href="https://tools.ietf.org/html/rfc7517" target="_blank"><b>JWK</b></a>
  objects.</p>
  */
 public class JSONObjectWriter implements Serializable {
@@ -547,6 +547,24 @@ public class JSONObjectWriter implements Serializable {
         setBinary(name, cryptoBinary);
     }
 
+    private void coreSign(JSONSigner signer, JSONObjectWriter signatureWriter) throws IOException {
+        signatureWriter.setString(JSONSignatureDecoder.ALGORITHM_JSON,
+                signer.getAlgorithm().getAlgorithmId(signer.algorithmPreferences));
+        if (signer.keyId != null) {
+            if (signer.keyId.length() > 0) {
+                signatureWriter.setString(JSONSignatureDecoder.KEY_ID_JSON, signer.keyId);
+            }
+        } else {
+            signer.writeKeyData(signatureWriter);
+        }
+        if (signer.extensions != null) {
+            signatureWriter.setObject(JSONSignatureDecoder.EXTENSIONS_JSON, signer.extensions); 
+        }
+        signatureWriter.setBinary(JSONSignatureDecoder.VALUE_JSON,
+                                  signer.signData(signer.normalizedData = 
+                                      serializeToBytes(JSONOutputFormats.NORMALIZED)));
+    }
+
     /**
      * Set a <a href="https://cyberphone.github.io/doc/security/jcs.html" target="_blank"><b>JCS</b></a>
      * <code>"signature"</code>object.<p>
@@ -610,38 +628,46 @@ import org.webpki.json.JSONSignatureDecoder;
         JSONObjectReader reader = JSONParser.parse(json);
     
         // Get and verify signature
-        JSONSignatureDecoder signature = reader.getSignature();
+        JSONSignatureDecoder signature = reader.getSignature(new JSONSignatureDecoder.Options());
         signature.verify(new JSONAsymKeyVerifier(publicKey));
     
         // Print document payload on the console
         System.out.println("Returned data: " + reader.getString("myProperty"));
     }
 </pre>
-     */
+    */
     public JSONObjectWriter setSignature(JSONSigner signer) throws IOException {
-        JSONObjectWriter signatureWriter = setObject(JSONSignatureDecoder.SIGNATURE_JSON);
-        signatureWriter.setString(JSONSignatureDecoder.ALGORITHM_JSON,
-                signer.getAlgorithm().getAlgorithmId(signer.algorithmPreferences));
-        if (signer.keyId != null) {
-            signatureWriter.setString(JSONSignatureDecoder.KEY_ID_JSON, signer.keyId);
+        coreSign(signer, setObject(JSONSignatureDecoder.SIGNATURE_JSON));
+        return this;
+    }
+    
+    /**
+     * Set a <a href="https://cyberphone.github.io/doc/security/jcs.html" target="_blank"><b>JCS</b></a>
+     * <code>"signatures"</code> [] object.<p>
+     * This method performs all the processing needed for adding multiple JCS signatures to the current object.</p>
+     * @param signers List with signature interfaces
+     * @return Current instance of {@link org.webpki.json.JSONObjectWriter}
+     * @throws IOException In case there a problem with keys etc.
+     */
+    @SuppressWarnings("unchecked") 
+    public JSONObjectWriter setSignatures(Vector<JSONSigner> signers) throws IOException {
+        if (signers.isEmpty()) {
+            throw new IOException("Empty signer list");
         }
-        signer.writeKeyData(signatureWriter);
-        if (signer.extensions != null) {
-            Vector<JSONValue> array = new Vector<JSONValue>();
-            for (JSONObjectWriter jor : signer.extensions) {
-                array.add(new JSONValue(JSONTypes.OBJECT, jor.root));
-            }
-            signatureWriter.setProperty(JSONSignatureDecoder.EXTENSIONS_JSON, new JSONValue(JSONTypes.ARRAY, array));
+        setArray(JSONSignatureDecoder.SIGNATURES_JSON);
+        Vector<JSONObject> signatures = new Vector<JSONObject>();
+        for (JSONSigner signer : signers) {
+            setupForRewrite(JSONSignatureDecoder.SIGNATURES_JSON);
+            coreSign(signer, setArray(JSONSignatureDecoder.SIGNATURES_JSON).setObject());
+            signatures.addAll((Vector<JSONObject>) root.properties.get(JSONSignatureDecoder.SIGNATURES_JSON).value);
         }
-        signatureWriter.setBinary(JSONSignatureDecoder.VALUE_JSON,
-                                  signer.signData(signer.normalizedData = 
-                                      serializeToBytes(JSONOutputFormats.NORMALIZED)));
+        root.properties.put(JSONSignatureDecoder.SIGNATURES_JSON, new JSONValue(JSONTypes.ARRAY, signatures));
         return this;
     }
 
     /**
      * Create a <a href="https://cyberphone.github.io/doc/security/jcs.html" target="_blank">JCS</a>
-     * (<a href="https://tools.ietf.org/rfc/rfc7517.txt" target="_blank"><b>JWK</b></a>) formatted public key.<p>
+     * (<a href="https://tools.ietf.org/html/rfc7517" target="_blank"><b>JWK</b></a>) formatted public key.<p>
      * Typical use:
      *<pre>
     setObject("myPublicKey", JSONObjectWriter.setCorePublicKey(myPublicKey, AlgorithmPreferences.JOSE);
@@ -679,7 +705,7 @@ import org.webpki.json.JSONSignatureDecoder;
 
     /**
      * Set a <a href="https://cyberphone.github.io/doc/security/jcs.html" target="_blank">JCS</a>
-     * (<a href="https://tools.ietf.org/rfc/rfc7517.txt" target="_blank"><b>JWK</b></a>) formatted public key.<p>
+     * (<a href="https://tools.ietf.org/html/rfc7517" target="_blank"><b>JWK</b></a>) formatted public key.<p>
      * Resulting JSON:
      * <pre>
     "publicKey": {
@@ -699,15 +725,15 @@ import org.webpki.json.JSONSignatureDecoder;
 
     /**
      * Set a <a href="https://cyberphone.github.io/doc/security/jcs.html" target="_blank">JCS</a>
-     * (<a href="https://tools.ietf.org/rfc/rfc7517.txt" target="_blank"><b>JWK</b></a>) formatted public key.<p>
+     * (<a href="https://tools.ietf.org/html/rfc7517" target="_blank"><b>JWK</b></a>) formatted public key.<p>
      * This method is equivalent to {@link #setPublicKey(PublicKey, AlgorithmPreferences)}
-     * using {@link AlgorithmPreferences#JOSE_ACCEPT_PREFER} as second argument.</p>
+     * using {@link AlgorithmPreferences#JOSE} as second argument.</p>
      * @param publicKey Public key value
      * @return Current instance of {@link org.webpki.json.JSONObjectWriter}
      * @throws IOException &nbsp;
      */
     public JSONObjectWriter setPublicKey(PublicKey publicKey) throws IOException {
-        return setPublicKey(publicKey, AlgorithmPreferences.JOSE_ACCEPT_PREFER);
+        return setPublicKey(publicKey, AlgorithmPreferences.JOSE);
     }
 
     /**
@@ -752,6 +778,7 @@ import org.webpki.json.JSONSignatureDecoder;
         setBinary(JSONDecryptionDecoder.CIPHER_TEXT_JSON, symmetricEncryptionResult.getCipherText());
         return this;
     }
+
     /**
      * Create a <a href="https://cyberphone.github.io/doc/security/jef.html" target="_blank"><b>JEF</b></a>
      * public key encrypted object.
@@ -770,37 +797,36 @@ import org.webpki.json.JSONSignatureDecoder;
                                                           String optionalKeyId,
                                                           KeyEncryptionAlgorithms keyEncryptionAlgorithm)
             throws IOException, GeneralSecurityException {
-        JSONObjectWriter keyEncryption = new JSONObjectWriter()
-                .setString(JSONSignatureDecoder.ALGORITHM_JSON, keyEncryptionAlgorithm.toString());
-        byte[] dataEncryptionKey = null;
+        JSONObjectWriter keyEncryption =
+                new JSONObjectWriter().setString(JSONSignatureDecoder.ALGORITHM_JSON,
+                                                 keyEncryptionAlgorithm.toString());
         if (optionalKeyId == null) {
             keyEncryption.setPublicKey(keyEncryptionKey, AlgorithmPreferences.JOSE);
-        } else {
+        } else if (optionalKeyId.length() > 0){
             keyEncryption.setString(JSONSignatureDecoder.KEY_ID_JSON, optionalKeyId);
         }
         AsymmetricEncryptionResult asymmetricEncryptionResult =
             keyEncryptionAlgorithm.isRsa() ?
-                    EncryptionCore.rsaEncryptKey(keyEncryptionAlgorithm,
-                                                 dataEncryptionAlgorithm,
-                                                 keyEncryptionKey)
-                                            :
-                    EncryptionCore.senderKeyAgreement(keyEncryptionAlgorithm,
-                                                      dataEncryptionAlgorithm,
-                                                      keyEncryptionKey);
-        dataEncryptionKey = asymmetricEncryptionResult.getDataEncryptionKey();
+                EncryptionCore.rsaEncryptKey(keyEncryptionAlgorithm,
+                                             dataEncryptionAlgorithm,
+                                             keyEncryptionKey)
+                                           :
+                EncryptionCore.senderKeyAgreement(keyEncryptionAlgorithm,
+                                                  dataEncryptionAlgorithm,
+                                                  keyEncryptionKey);
         if (!keyEncryptionAlgorithm.isRsa()) {
             keyEncryption.setObject(JSONDecryptionDecoder.EPHEMERAL_KEY_JSON,
-                                   createCorePublicKey(asymmetricEncryptionResult.getEphemeralKey(),
+                                    createCorePublicKey(asymmetricEncryptionResult.getEphemeralKey(),
                                                        AlgorithmPreferences.JOSE));
         }
         if (keyEncryptionAlgorithm.isKeyWrap()) {
             keyEncryption.setBinary(JSONDecryptionDecoder.ENCRYPTED_KEY_JSON,
-                                   asymmetricEncryptionResult.getEncryptedKeyData());
+                                    asymmetricEncryptionResult.getEncryptedKeyData());
         }
         return new JSONObjectWriter().encryptData(unencryptedData,
                                                   dataEncryptionAlgorithm,
                                                   null,
-                                                  dataEncryptionKey,
+                                                  asymmetricEncryptionResult.getDataEncryptionKey(),
                                                   keyEncryption);
     }
 
@@ -809,7 +835,7 @@ import org.webpki.json.JSONSignatureDecoder;
      * symmetric key encrypted object.
      * @param unencryptedData Data to be encrypted
      * @param dataEncryptionAlgorithm Data encryption algorithm
-     * @param keyId Optional key id
+     * @param optionalKeyId Optional key id
      * @param dataEncryptionKey Symmetric key
      * @return New instance of {@link org.webpki.json.JSONObjectWriter}
      * @throws IOException &nbsp;
@@ -817,10 +843,13 @@ import org.webpki.json.JSONSignatureDecoder;
      */
     public static JSONObjectWriter createEncryptionObject(byte[] unencryptedData,
                                                           DataEncryptionAlgorithms dataEncryptionAlgorithm,
-                                                          String keyId,
+                                                          String optionalKeyId,
                                                           byte[] dataEncryptionKey)
             throws IOException, GeneralSecurityException {
-        return new JSONObjectWriter().encryptData(unencryptedData, dataEncryptionAlgorithm, keyId, dataEncryptionKey, null);
+        return new JSONObjectWriter().encryptData(unencryptedData,
+                                                  dataEncryptionAlgorithm,
+                                                  optionalKeyId,
+                                                  dataEncryptionKey, null);
     }
 
     void newLine() {

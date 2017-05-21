@@ -26,8 +26,10 @@ import android.webkit.WebView;
 import org.spongycastle.jce.provider.BouncyCastleProvider;
 
 import org.webpki.crypto.MACAlgorithms;
+import org.webpki.crypto.AlgorithmPreferences;
 
 import org.webpki.json.JSONAsymKeySigner;
+import org.webpki.json.JSONObjectReader;
 import org.webpki.json.JSONObjectWriter;
 import org.webpki.json.JSONSignatureDecoder;
 import org.webpki.json.JSONDecryptionDecoder;
@@ -53,9 +55,9 @@ import java.io.PrintWriter;
  */
 public class MainActivity extends AppCompatActivity {
 
-    enum SIG_TYPES {EC_KEY, RSA_KEY, PKI, SYMMETRIC_KEY};
+    enum SIG_TYPES {EC_KEY, RSA_KEY, PKI, SYMMETRIC_KEY}
 
-    enum ENC_TYPES {EC_KEY, RSA_KEY, SYMMETRIC_KEY};
+    enum ENC_TYPES {EC_KEY, RSA_KEY, SYMMETRIC_KEY}
 
     static final byte[] SYMMETRIC_KEY = {
             (byte) 0xF4, (byte) 0xC7, (byte) 0x4F, (byte) 0x33,
@@ -268,7 +270,19 @@ public class MainActivity extends AppCompatActivity {
     @JavascriptInterface
     public void doVerify(String jsonData) {
         try {
-            JSONSignatureDecoder signature = JSONParser.parse(jsonData).getSignature();
+            // Normally you know what to expect so this code is a bit over-the-top
+            JSONObjectReader signedData = JSONParser.parse(jsonData);
+            JSONSignatureDecoder.Options options = new JSONSignatureDecoder.Options();
+            String algorithm =
+                    signedData.getObject(JSONSignatureDecoder.SIGNATURE_JSON)
+                            .getString(JSONSignatureDecoder.ALGORITHM_JSON);
+            for (MACAlgorithms macs : MACAlgorithms.values()) {
+                if (algorithm.equals(macs.getAlgorithmId(AlgorithmPreferences.JOSE_ACCEPT_PREFER))) {
+                    options.setRequirePublicKeyInfo(false)
+                            .setKeyIdOption(JSONSignatureDecoder.KEY_ID_OPTIONS.REQUIRED);
+                }
+            }
+            JSONSignatureDecoder signature = signedData.getSignature(options);
             String key = null;
             switch (signature.getSignatureType()) {
                 case ASYMMETRIC_KEY:
@@ -278,7 +292,7 @@ public class MainActivity extends AppCompatActivity {
                     key = signature.getCertificatePath()[0].toString();
                     break;
                 default:
-                    signature.verify(new JSONSymKeyVerifier(SYMMETRIC_KEY).permitKeyId(true));
+                    signature.verify(new JSONSymKeyVerifier(SYMMETRIC_KEY));
                     key = Base64URL.encode(SYMMETRIC_KEY);
             }
             loadHtml("",

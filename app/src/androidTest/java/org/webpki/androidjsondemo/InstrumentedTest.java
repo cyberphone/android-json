@@ -108,6 +108,11 @@ public class InstrumentedTest {
                 KeyEncryptionAlgorithms.JOSE_RSA_OAEP_256_ALG_ID,
                 JEF_RSA_KEY_ID));
 
+        keys.add(new DecryptionKeyHolder(rsaPrivateKey.getPublic(),
+                rsaPrivateKey.getPrivate(),
+                KeyEncryptionAlgorithms.JOSE_RSA_OAEP_ALG_ID,
+                JEF_RSA_KEY_ID));
+
         decrypt(R.raw.ecdh_es_json);
         decrypt(R.raw.ecdh_es2_json);
         decrypt(R.raw.ecdh_es3_json);
@@ -144,20 +149,20 @@ public class InstrumentedTest {
 
     @Test
     public void signatures() throws Exception {
-        getResource(R.raw.json_signature).getSignature();
+        getResource(R.raw.json_signature).getSignature(new JSONSignatureDecoder.Options());
         String signature =
                 getData().setSignature(new JSONAsymKeySigner(ecPrivateKey.getPrivate(),
                                                              ecPrivateKey.getPublic(),
                                                              null)).toString();
-        JSONParser.parse(signature).getSignature();
+        JSONParser.parse(signature).getSignature(new JSONSignatureDecoder.Options());
         signature =
                 getData().setSignature(new JSONAsymKeySigner(rsaPrivateKey.getPrivate(),
                                                              rsaPrivateKey.getPublic(),
                                                              null)).toString();
-        JSONParser.parse(signature).getSignature();
+        JSONParser.parse(signature).getSignature(new JSONSignatureDecoder.Options());
 
         try {
-            JSONParser.parse(signature.replace("now", "then")).getSignature();
+            JSONParser.parse(signature.replace("now", "then")).getSignature(new JSONSignatureDecoder.Options());
             fail("verify");
         } catch (Exception e) {
         }
@@ -195,10 +200,15 @@ public class InstrumentedTest {
         signature =
                 getData().setSignature(new JSONSymKeySigner(Base64URL.decode(JEF_SYM_KEY),
                                                             MACAlgorithms.HMAC_SHA256)).toString();
-        JSONParser.parse(signature).getSignature().verify(new JSONSymKeyVerifier(Base64URL.decode(JEF_SYM_KEY)));
+        JSONParser.parse(signature)
+                .getSignature(new JSONSignatureDecoder.Options()
+                        .setRequirePublicKeyInfo(false))
+                .verify(new JSONSymKeyVerifier(Base64URL.decode(JEF_SYM_KEY)));
         try {
             JSONParser.parse(signature.replace("now", "then"))
-                    .getSignature().verify(new JSONSymKeyVerifier(Base64URL.decode(JEF_SYM_KEY)));
+                    .getSignature(new JSONSignatureDecoder.Options()
+                            .setRequirePublicKeyInfo(false))
+                    .verify(new JSONSymKeyVerifier(Base64URL.decode(JEF_SYM_KEY)));
             fail("verify");
         } catch (Exception e) {
         }
