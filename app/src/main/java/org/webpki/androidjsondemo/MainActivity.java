@@ -219,7 +219,12 @@ public class MainActivity extends AppCompatActivity {
         webView.addJavascriptInterface (this, "WebPKI");
         homeScreen();
         Security.insertProviderAt(new BouncyCastleProvider(), 1);
-        setTitle("JSON, JCS and JEF Test/Demo");
+        String version = "?";
+        try {
+            version = getPackageManager().getPackageInfo(getPackageName(), 0).versionName;
+        } catch (Exception e) {
+        }
+        setTitle("JSON, JCS and JEF Demo V" + version);
      }
 
     void addCommandButton(StringBuffer buffer, String button, String executor) {
