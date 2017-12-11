@@ -19,6 +19,8 @@ package org.webpki.androidjsondemo;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 
+import android.util.Base64;
+
 import android.webkit.JavascriptInterface;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
@@ -159,14 +161,17 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void run() {
                 webView.loadUrl("about:blank");
-                String html = new StringBuffer(HTML_HEADER)
-                        .append(javaScript)
-                        .append(HTML_BODY)
-                        .append(header)
-                        .append("</h3>")
-                        .append(body)
-                        .append("</body></html>").toString();
-                webView.loadData(html, "text/html; charset=utf-8", null);
+                try {
+                    String html = Base64.encodeToString(new StringBuffer(HTML_HEADER)
+                                    .append(javaScript)
+                                    .append(HTML_BODY)
+                                    .append(header)
+                                    .append("</h3>")
+                                    .append(body)
+                                    .append("</body></html>").toString().getBytes("utf-8"), Base64.NO_WRAP);
+                    webView.loadData(html, "text/html; charset=utf-8", "base64");
+                } catch (Exception e) {
+                }
             }
         });
     }
