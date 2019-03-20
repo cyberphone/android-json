@@ -76,71 +76,6 @@ public class MainActivity extends AppCompatActivity {
 
     static final String MY_KEY = "mykey";
 
-    static final String RSA_KEYPAIR = "{" +
-        "\"kty\":\"RSA\"," +
-        "\"n\":\"y__yOXXaisKqCW2UCcOxpZRCCIdz04074KrnQXMOjSulnaB-kBUUV49Gc8jBI1k7IP0gLd" +
-                "tIPjv2WVFaewt3bm2P2tymRYNw6trisoVtSswWhPDNR12ZEhUNh4vIyJsyYsZRg2y11_gh" +
-                 "mK5PeRRxSqVwdga-HOuhXhN_KyD-CL7VxHQwpeAmwWXDvPweTpLWzlVoRzOSkCbsluzCW" +
-                 "9Sh0rBHPe4pBScaY2oXQsiWt8nm3p6rgfBALsP_8pEdt5W-dHMihTYfsuLNroJRngocnv" +
-                 "Phv44F1ODafUwfuLPe-LpG8zIzMGHnaD4GECOatrzOqPjUCnyiHchNFap1HU8khQ\"," +
-        "\"e\":\"AQAB\"," +
-        "\"d\":\"licHtT-H4kayPUpIgn9mDIf5qql4magFALMKkGQNu976gfEV9xts453zr1l-v3P4T6nAu8" +
-                "ABhr0_8DIvNQ4VlFRUZDWwtM2wmU0PO3N2JG3fzW4oynScLHEOikxbNzz0czuh1-h2WEat" +
-                "A-KZYHepg9YN1vHTkRnmpoYXPjmEgg4UBCPZWBYqiSOYTlmyMh3OJrHlhkaqMQZID1acU1" +
-                "WPf5rtl9-s3DLYjaV9sgk-4dlmUShWoa4ruK1tL4hZV77tgHzG0D4jmnjc7aHnH20aCGoG" +
-                "z0SkIDH5Y-UzotG-vKvVW_9LaXSrEcfuqs2YtaXeixB1Xp_EI3yntt1z-vPC6Q\"," +
-        "\"p\":\"8VLnM8VF1pW1M31jQfec0h4NUO3WuLTR8xJJA1Qn572zYC1jd5myLOYIdZ1KpSDeTtydEi" +
-                "R63OMeht4Ph5GgBd8d8Mfq5ANpyhmMO8eqegzx51AuKFRrRyLVtjgwdt3Y-xzsagR1ovHg" +
-                "7C0nvMoBGBC6R4HqRmX7Yeq_Me4Kb2M\"," +
-        "\"q\":\"2Gf00-LjLNyHjcPZGA4mEQ_Zo-5cj9t6X2-m8Vyu40Id1OOdzhbE1jifls0piTdD2_dxGc" +
-                "YLhtDxJtvRr58YsArJSKOdDAZxETfh4f3K_QEoWiVFKd2Ig2P67k4D1sEPoFjM8ri3vFst" +
-                "AawQv06nwgKtNWhfkOishKjpfEPJZPc\"," +
-        "\"dp\":\"oykgNLqOa3Uw3C1MrM9TciTrb-o-oQdwY93bC6sch-yUmNRXSgfalcy5r3u3eknsxHkYo" +
-                 "amUgD_25czBxzFIdm_R-HfScnN0VTZMwCZRNtAFxhVJ_-6D0cbVo6v96IA6Mh3uIgf92T" +
-                 "ucjVJCabxSXQkCSVKnKQ3Olvd2abW9zG0\"," +
-        "\"dq\":\"Uv5baL-E_Hl_CyFnKtCSTMzVXQdXPFyh6-P4FGzFLab3peO9a4JT7ww8OCtqmJM3VS7qk" +
-                 "0Xeuc98DLkVC9NqNmmMlG0bF7eIuV_DI1af-LPu89ODWPD7H9jCLY6B7mSQR6CGyTeKT5" +
-                 "RwCEojChtyPvej0e27aOmy8BWPpfahUDU\"," +
-        "\"qi\":\"kyWCUFH8mC4evXRP0flATYdrAPIWwuLO9945Q5FXRT41jFWzAY8NO-pzPWIfo8uOWbgAx" +
-                 "G83RzKlDqNyDfU3LPIoYuBC8sGwGhU12E4A0L7IoLWi6I3eXasiX1sd3ngjRuHDiBWD5D" +
-                 "HdQySfsTJI5v0Tb4Kuop0KDvf9wNdlr60\"" +
-    "}";
-
-    static final String EC_KEYPAIR = "{" +
-        "\"kty\":\"EC\","+
-        "\"crv\":\"P-256\","+
-        "\"x\":\"o4UjRyckZkIuVPq-1pDZ7NA-m9Z9YEMm4JQr8l4CANk\","+
-        "\"y\":\"EJIlckodmvDfuCIqYapf7hxdTfH__M5Bc3VTjxUDA28\","+
-        "\"d\":\"Nq2G4dhDJMQmXSCi_4rIbllXMRQJn6Q1-kDP2BeRUMI\"" +
-    "}";
-
-    static final String EC_CERTIFICATE = "[" +
-    "\"MIIBtTCCAVmgAwIBAgIGAU-H595vMAwGCCqGSM49BAMCBQAwLzELMAkGA1UEBhMCRVUxIDAeBgNVBA" +
-      "MTF1BheW1lbnQgTmV0d29yayBTdWIgQ0EzMB4XDTE0MDEwMTAwMDAwMFoXDTIwMDcxMDA5NTk1OVow" +
-      "MTELMAkGA1UEBhMCRlIxDTALBgNVBAUTBDQ1MDExEzARBgNVBAMTCm15YmFuay5jb20wWTATBgcqhk" +
-      "jOPQIBBggqhkjOPQMBBwNCAASjhSNHJyRmQi5U-r7WkNns0D6b1n1gQybglCvyXgIA2RCSJXJKHZrw" +
-      "37giKmGqX-4cXU3x__zOQXN1U48VAwNvo10wWzAJBgNVHRMEAjAAMA4GA1UdDwEB_wQEAwIHgDAdBg" +
-      "NVHQ4EFgQUOdV3H3r6TufkQh-dqhcXMrjUY2kwHwYDVR0jBBgwFoAUy0fdXq1oJ6GFAJo10qx609KD" +
-      "ARAwDAYIKoZIzj0EAwIFAANIADBFAiEAluqzuTTzVBG74AoALaWRsRn9QALg2N6C3sIlztm6sPoCID" +
-      "1ZnGnTrhz-CodxuGvg7fkOVfdffdSuEdyhQXemGtT4\", " +
-
-    "\"MIIDcjCCAVqgAwIBAgIBAzANBgkqhkiG9w0BAQ0FADAwMQswCQYDVQQGEwJVUzEhMB8GA1UEAxMYUG" +
-      "F5bWVudCBOZXR3b3JrIFJvb3QgQ0ExMB4XDTEyMDcxMDEwMDAwMFoXDTI1MDcxMDA5NTk1OVowLzEL" +
-      "MAkGA1UEBhMCRVUxIDAeBgNVBAMTF1BheW1lbnQgTmV0d29yayBTdWIgQ0EzMFkwEwYHKoZIzj0CAQ" +
-      "YIKoZIzj0DAQcDQgAEcX8CYrYFoQhPbTci93W5qyCx0i0H-FvmXIvH5XNBlnNLfPkRacqn0PRFNn4Z" +
-      "4o3BVxI3x5yob9C7FqpKslcCgKNjMGEwDwYDVR0TAQH_BAUwAwEB_zAOBgNVHQ8BAf8EBAMCAQYwHQ" +
-      "YDVR0OBBYEFMtH3V6taCehhQCaNdKsetPSgwEQMB8GA1UdIwQYMBaAFELvwS_Fk7IfHMWJeu-yhGdM" +
-      "-5EiMA0GCSqGSIb3DQEBDQUAA4ICAQBNQdIOSU2fB5JjCO9Q0mCfOxDXFihMKSiOanAJ_r2rxGN7Up" +
-      "rw32JPsJnQhuxbrwmniKgCmBVD6Jak4GtHSLVvJPjpf_Pe7pUbyMb6iNNeV3SmJvsHoE2m5WdSGxjI" +
-      "PxK4NOBv3Mm3Ib1_kxyVceegHEHRUk5IXyQUNV1sUsxIypELjC8bAIvnMj_J1FlP8nsfehbibT3XH0" +
-      "4uvX9dgNGexpz8BDLa0fEpLzrKoyMtUbSwg88_WsdPnkvp1fhiwCF9GpIHwsXi3Nv-Wdgdyn-hKFQe" +
-      "6sP2FmsPDiI2qWqX7fEs0VN5Uo2oI5Q2T6673JiZnkycXYLNIRpc06KSTcs8B45u5NMAyvLx3l4S8M" +
-      "y-HK4nfiqbF3TPVGJkq4aXAAZnhVcQTrO71tQ0BJMibKjz6sylBEnhlFQs3ICcesaGVXV3JVbwtf_O" +
-      "kAUUUduYWOmUZU5ng3vNJV0ofqfvoNcBlVsrWpFNqImy2-icUxiad_8--ortiq4WG594Ap52CqXt7K" +
-      "8UcZaMLDAj2COOmo1gy9iUjzgyzSqnYye2Gqr72ts5jd8B8wkM1rM0JDM6DvCyJgHVvc8VTNE7Mt2M" +
-      "u9XsofQkdLdDgrPuo6AV88g1BGk7cY0FJMJFoBAlrj98A4KslbeGBV7AUGuzvS-w1VA6dRH6_5Fv2e" +
-      "SHXW6pzA_D8Q\"]";
-
     static final String HTML_HEADER =
         "<html><head><style type='text/css'>" +
         "body {margin:12pt;font-size:10pt;color:#000000;font-family:Roboto;background-color:white}" +
@@ -224,6 +159,7 @@ public class MainActivity extends AppCompatActivity {
         Security.insertProviderAt(new BouncyCastleProvider(), 1);
         String version = "?";
         try {
+            new RawReader(getApplicationContext());
             version = getPackageManager().getPackageInfo(getPackageName(), 0).versionName;
         } catch (Exception e) {
         }
@@ -353,14 +289,14 @@ public class MainActivity extends AppCompatActivity {
             switch (sigType) {
                 case EC_KEY:
                 case RSA_KEY:
-                    KeyPair keyPair = JSONParser.parse(sigType == SIG_TYPES.RSA_KEY ?
-                                                                        RSA_KEYPAIR : EC_KEYPAIR).getKeyPair();
+                    KeyPair keyPair = sigType == SIG_TYPES.RSA_KEY ?
+                                              RawReader.rsaKeyPair : RawReader.ecKeyPair;
                     writer.setSignature(new JSONAsymKeySigner(keyPair.getPrivate(), keyPair.getPublic(), null));
                     break;
                 case PKI:
                     writer.setSignature(new JSONX509Signer(
-                            JSONParser.parse(EC_KEYPAIR).getKeyPair().getPrivate(),
-                            JSONParser.parse(EC_CERTIFICATE).getJSONArrayReader().getCertificatePath(),
+                            RawReader.ecKeyPair.getPrivate(),
+                            RawReader.ecCertPath,
                             null));
                     break;
                 default:
@@ -409,9 +345,8 @@ public class MainActivity extends AppCompatActivity {
             switch (encType) {
                 case EC_KEY:
                 case RSA_KEY:
-                    PublicKey publicKey =
-                            JSONParser.parse(encType == ENC_TYPES.RSA_KEY ?
-                                                              RSA_KEYPAIR : EC_KEYPAIR).getKeyPair().getPublic();
+                    PublicKey publicKey = (encType == ENC_TYPES.RSA_KEY ?
+                                                   RawReader.rsaKeyPair : RawReader.ecKeyPair).getPublic();
                     writer = JSONObjectWriter.createEncryptionObject(unencryptedData,
                                                                      DataEncryptionAlgorithms.JOSE_A128GCM_ALG_ID,
                                                                      new JSONAsymKeyEncrypter(publicKey,
@@ -457,9 +392,8 @@ public class MainActivity extends AppCompatActivity {
             if (encryptionObject.isSharedSecret()) {
                 decryptedData = new String(encryptionObject.getDecryptedData(SYMMETRIC_KEY),"UTF-8");
             } else {
-                KeyPair keyPair =
-                        JSONParser.parse(encryptionObject.getKeyEncryptionAlgorithm().isRsa() ?
-                                RSA_KEYPAIR : EC_KEYPAIR).getKeyPair();
+                KeyPair keyPair = encryptionObject.getKeyEncryptionAlgorithm().isRsa() ?
+                                                                  RawReader.rsaKeyPair : RawReader.ecKeyPair;
                 decryptedData = new String(encryptionObject.getDecryptedData(keyPair.getPrivate()),"UTF-8");
             }
             loadHtml("",
