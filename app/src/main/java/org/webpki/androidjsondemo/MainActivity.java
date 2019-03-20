@@ -39,9 +39,12 @@ import org.webpki.json.JSONParser;
 import org.webpki.json.JSONSymKeySigner;
 import org.webpki.json.JSONSymKeyVerifier;
 import org.webpki.json.JSONX509Signer;
+import org.webpki.json.JSONCryptoHelper;
+import org.webpki.json.JSONAsymKeyEncrypter;
+import org.webpki.json.JSONSymKeyEncrypter;
 
-import org.webpki.json.encryption.DataEncryptionAlgorithms;
-import org.webpki.json.encryption.KeyEncryptionAlgorithms;
+import org.webpki.json.DataEncryptionAlgorithms;
+import org.webpki.json.KeyEncryptionAlgorithms;
 
 import org.webpki.util.Base64URL;
 
@@ -224,7 +227,7 @@ public class MainActivity extends AppCompatActivity {
             version = getPackageManager().getPackageInfo(getPackageName(), 0).versionName;
         } catch (Exception e) {
         }
-        setTitle("JSON, JCS and JEF Demo V" + version);
+        setTitle("JSON, JSF and JEF Demo V" + version);
      }
 
     void addCommandButton(StringBuffer buffer, String button, String executor) {
@@ -282,14 +285,14 @@ public class MainActivity extends AppCompatActivity {
         try {
             // Normally you know what to expect so this code is a bit over-the-top
             JSONObjectReader signedData = JSONParser.parse(jsonData);
-            JSONSignatureDecoder.Options options = new JSONSignatureDecoder.Options();
+            JSONCryptoHelper.Options options = new JSONCryptoHelper.Options();
             String algorithm =
-                    signedData.getObject(JSONSignatureDecoder.SIGNATURE_JSON)
-                            .getString(JSONSignatureDecoder.ALGORITHM_JSON);
+                    signedData.getObject(JSONObjectWriter.SIGNATURE_DEFAULT_LABEL_JSON)
+                            .getString(JSONCryptoHelper.ALGORITHM_JSON);
             for (MACAlgorithms macs : MACAlgorithms.values()) {
                 if (algorithm.equals(macs.getAlgorithmId(AlgorithmPreferences.JOSE_ACCEPT_PREFER))) {
                     options.setRequirePublicKeyInfo(false)
-                            .setKeyIdOption(JSONSignatureDecoder.KEY_ID_OPTIONS.REQUIRED);
+                            .setKeyIdOption(JSONCryptoHelper.KEY_ID_OPTIONS.REQUIRED);
                 }
             }
             JSONSignatureDecoder signature = signedData.getSignature(options);
@@ -411,16 +414,14 @@ public class MainActivity extends AppCompatActivity {
                                                               RSA_KEYPAIR : EC_KEYPAIR).getKeyPair().getPublic();
                     writer = JSONObjectWriter.createEncryptionObject(unencryptedData,
                                                                      DataEncryptionAlgorithms.JOSE_A128GCM_ALG_ID,
-                                                                     publicKey,
-                                                                     null,
+                                                                     new JSONAsymKeyEncrypter(publicKey,
                                                                      encType == ENC_TYPES.RSA_KEY ?
-                             KeyEncryptionAlgorithms.JOSE_RSA_OAEP_256_ALG_ID : KeyEncryptionAlgorithms.JOSE_ECDH_ES_A256KW_ALG_ID);
+                             KeyEncryptionAlgorithms.JOSE_RSA_OAEP_256_ALG_ID : KeyEncryptionAlgorithms.JOSE_ECDH_ES_A256KW_ALG_ID));
                     break;
                 default:
                     writer = JSONObjectWriter.createEncryptionObject(unencryptedData,
                                                                      DataEncryptionAlgorithms.JOSE_A128CBC_HS256_ALG_ID,
-                                                                     MY_KEY,
-                                                                     SYMMETRIC_KEY);
+                                                                     new JSONSymKeyEncrypter(SYMMETRIC_KEY).setKeyId(MY_KEY));
             }
             decryptData(writer.toString());
         } catch (Exception e) {
@@ -451,7 +452,7 @@ public class MainActivity extends AppCompatActivity {
     @JavascriptInterface
     public void doDecrypt(String jsonEncryptionObject) {
         try {
-            JSONDecryptionDecoder encryptionObject = JSONParser.parse(jsonEncryptionObject).getEncryptionObject();
+            JSONDecryptionDecoder encryptionObject = JSONParser.parse(jsonEncryptionObject).getEncryptionObject(new JSONCryptoHelper.Options());
             String decryptedData = null;
             if (encryptionObject.isSharedSecret()) {
                 decryptedData = new String(encryptionObject.getDecryptedData(SYMMETRIC_KEY),"UTF-8");

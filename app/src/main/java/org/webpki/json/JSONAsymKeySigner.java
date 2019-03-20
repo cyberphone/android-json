@@ -1,5 +1,5 @@
 /*
- *  Copyright 2006-2016 WebPKI.org (http://webpki.org).
+ *  Copyright 2006-2018 WebPKI.org (http://webpki.org).
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -30,7 +30,7 @@ import org.webpki.crypto.SignatureAlgorithms;
 import org.webpki.crypto.SignatureWrapper;
 
 /**
- * Initiatiator object for asymmetric key signatures.
+ * Initiator object for asymmetric key signatures.
  */
 public class JSONAsymKeySigner extends JSONSigner {
 
@@ -42,10 +42,6 @@ public class JSONAsymKeySigner extends JSONSigner {
 
     PublicKey publicKey;
 
-    private String uri;
-
-    private JSONRemoteKeys format;
-    
     /**
      * Constructor for custom crypto solutions.
      * @param signer Handle to implementation
@@ -96,22 +92,6 @@ public class JSONAsymKeySigner extends JSONSigner {
         return this;
     }
 
-    /**
-     * Set remote key indicator.
-     * This method <i>suppress</i> the in-line public key/certificate information.
-     * Note that private and public keys must anyway be provided during <i>signing</i>
-     * since the remote key indicator is simply generated &quot;as is&quot;. 
-     * @param uri Where the key lives
-     * @param format What format the key has
-     * @return this
-     * @see org.webpki.json.JSONRemoteKeys
-     */
-    public JSONAsymKeySigner setRemoteKey(String uri, JSONRemoteKeys format) {
-        this.uri = uri;
-        this.format = format;
-        return this;
-    }
-
     @Override
     SignatureAlgorithms getAlgorithm() {
         return algorithm;
@@ -124,12 +104,6 @@ public class JSONAsymKeySigner extends JSONSigner {
 
     @Override
     void writeKeyData(JSONObjectWriter wr) throws IOException {
-        if (uri == null) {
-            wr.setPublicKey(publicKey, algorithmPreferences);
-        } else {
-            wr.setObject(JSONSignatureDecoder.REMOTE_KEY_JSON)
-                .setString(JSONSignatureDecoder.URI_JSON, uri)
-                .setString(JSONSignatureDecoder.FORMAT_JSON, format.toString());
-        }
+        wr.setPublicKey(publicKey, algorithmPreferences);
     }
 }

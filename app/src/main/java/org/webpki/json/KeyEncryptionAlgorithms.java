@@ -1,5 +1,5 @@
 /*
- *  Copyright 2006-2016 WebPKI.org (http://webpki.org).
+ *  Copyright 2006-2018 WebPKI.org (http://webpki.org).
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -14,12 +14,12 @@
  *  limitations under the License.
  *
  */
-package org.webpki.json.encryption;
+package org.webpki.json;
 
 import java.io.IOException;
 
 /**
- * JEF (JSON Encryption Format) key encryption algorithms.
+ * JWE algorithms.
  */
 public enum KeyEncryptionAlgorithms {
 
@@ -63,6 +63,6 @@ public enum KeyEncryptionAlgorithms {
                 return algorithm;
             }
         }
-        throw new IOException("No such algorithm: " + algorithmId);
+        throw new IOException("Unexpected argument to \"" + JSONCryptoHelper.ALGORITHM_JSON + "\": " + algorithmId);
     }
 }

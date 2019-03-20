@@ -1,5 +1,5 @@
 /*
- *  Copyright 2006-2016 WebPKI.org (http://webpki.org).
+ *  Copyright 2006-2018 WebPKI.org (http://webpki.org).
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -188,7 +188,7 @@ public class ArrayUtil {
         if (maxLength == -1 || startOffset + maxLength > value.length) {
             maxLength = value.length - startOffset;
         }
-        StringBuffer r = new StringBuffer(maxLength * (separator == -1 ? 2 : 3));
+        StringBuilder r = new StringBuilder(maxLength * (separator == -1 ? 2 : 3));
         for (int i = 0; i < maxLength; i++) {
             if (i > 0 && separator != 0) {
                 r.append(separator);

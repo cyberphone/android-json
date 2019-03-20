@@ -1,5 +1,5 @@
 /*
- *  Copyright 2006-2016 WebPKI.org (http://webpki.org).
+ *  Copyright 2006-2018 WebPKI.org (http://webpki.org).
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -22,74 +22,106 @@ import java.security.GeneralSecurityException;
 import java.security.PrivateKey;
 import java.security.PublicKey;
 
+import java.security.cert.X509Certificate;
+
 import java.security.interfaces.ECPublicKey;
 
 import java.util.LinkedHashMap;
 import java.util.Vector;
 
-import org.webpki.crypto.AlgorithmPreferences;
-
-import org.webpki.json.encryption.DataEncryptionAlgorithms;
-import org.webpki.json.encryption.DecryptionKeyHolder;
-import org.webpki.json.encryption.EncryptionCore;
-import org.webpki.json.encryption.KeyEncryptionAlgorithms;
-
-
-////////////////////////////////////////////////////////////////////////////////
-// JEF is effectively a "remake" of a subset of JWE.  Why a remake?           //
-// Because the encryption system (naturally) borrows heavily from JCS         //
-// including public key structures and property naming conventions.           //
-//                                                                            //
-// The supported algorithms are though JOSE compatible including their names. //
-////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////
+// JEF is effectively a "remake" of of JWE.  Why a remake?  Because the           //
+// encryption system (naturally) borrows heavily from JSF including clear text    //
+// header information and using the JCS based normalization scheme for creating   //
+// authenticated data.                                                            //
+//                                                                                //
+// The supported algorithms and JWK attributes are though fully JOSE compatible.  //
+////////////////////////////////////////////////////////////////////////////////////
 
 /**
  * Holds parsed JEF (JSON Encryption Format) data.
  */
 public class JSONDecryptionDecoder {
 
-    public static final String ENCRYPTION_VERSION_ID = "http://xmlns.webpki.org/jef/v1";
+    /**
+     * Decodes and hold all global data and options.
+     */
+    static class Holder {
 
-    public static final String KEY_ENCRYPTION_JSON   = "keyEncryption";
-    public static final String ENCRYPTED_KEY_JSON    = "encryptedKey";
-    public static final String EPHEMERAL_KEY_JSON    = "ephemeralKey";
-    public static final String IV_JSON               = "iv";
-    public static final String TAG_JSON              = "tag";
-    public static final String CIPHER_TEXT_JSON      = "cipherText";
+        JSONCryptoHelper.Options options;
+        
+        boolean keyEncryption;
+
+        byte[] authenticatedData;
+        byte[] iv;
+        byte[] tag;
+        byte[] encryptedData;
+        
+        DataEncryptionAlgorithms dataEncryptionAlgorithm;
+        JSONObjectReader globalEncryptionObject;
+
+        Holder (JSONCryptoHelper.Options options, 
+                JSONObjectReader encryptionObject,
+                boolean keyEncryption) throws IOException {
+            encryptionObject.clearReadFlags();
+            this.options = options;
+            this.globalEncryptionObject = encryptionObject;
+            this.keyEncryption = keyEncryption;
+
+            ///////////////////////////////////////////////////////////////////////////////////////////////
+            // Begin JEF normalization                                                                   //
+            //                                                                                           //
+            // 1. Make a shallow copy of the encryption object property list                             //
+            LinkedHashMap<String, JSONValue> savedProperties =                                           //
+                    new LinkedHashMap<String, JSONValue>(encryptionObject.root.properties);              //
+            //                                                                                           //
+            // 2. Hide these properties from the serializer..                                            //
+            encryptionObject.root.properties.remove(JSONCryptoHelper.IV_JSON);                           //
+            encryptionObject.root.properties.remove(JSONCryptoHelper.TAG_JSON);                          //
+            encryptionObject.root.properties.remove(JSONCryptoHelper.CIPHER_TEXT_JSON);                  //
+            //                                                                                           //
+            // 3. Canonicalize                                                                           //
+            authenticatedData = encryptionObject.serializeToBytes(JSONOutputFormats.CANONICALIZED);      //
+            //                                                                                           //
+            // 4. Restore encryption object property list                                                //
+            encryptionObject.root.properties = savedProperties;                                          //
+            //                                                                                           //
+            // End JEF normalization                                                                     //
+            ///////////////////////////////////////////////////////////////////////////////////////////////
+
+            // Collect mandatory elements
+            dataEncryptionAlgorithm = DataEncryptionAlgorithms
+                    .getAlgorithmFromId(encryptionObject.getString(JSONCryptoHelper.ALGORITHM_JSON));
+            iv = encryptionObject.getBinary(JSONCryptoHelper.IV_JSON);
+            tag = encryptionObject.getBinary(JSONCryptoHelper.TAG_JSON);
+            encryptedData = encryptionObject.getBinary(JSONCryptoHelper.CIPHER_TEXT_JSON);
+        }
+    }
+
+    LinkedHashMap<String,JSONCryptoHelper.Extension> extensions = new LinkedHashMap<String,JSONCryptoHelper.Extension>();
 
     private PublicKey publicKey;
+    
+    private X509Certificate[] certificatePath;
 
     private ECPublicKey ephemeralPublicKey;  // For ECHD only
-
-    private DataEncryptionAlgorithms dataEncryptionAlgorithm;
-
-    private byte[] iv;
-
-    private byte[] tag;
 
     private String keyId;
 
     private KeyEncryptionAlgorithms keyEncryptionAlgorithm;
 
-    private byte[] encryptedKeyData;  // For RSA only
+    private byte[] encryptedKeyData;  // For RSA and ECDH+ only
 
-    private byte[] encryptedData;
-    
     private boolean sharedSecretMode;
 
-    private byte[] authenticatedData;  // This implementation uses "encryptedKey" which is similar to JWE's protected header
-
-    private JSONObjectReader checkVersion(JSONObjectReader rd) throws IOException {
-        rd.clearReadFlags();
-        String version = rd.getStringConditional(JSONSignatureDecoder.VERSION_JSON, ENCRYPTION_VERSION_ID);
-        if (!version.equals(ENCRYPTION_VERSION_ID)) {
-            throw new IOException("Unknown encryption version: " + version);
-        }
-        return rd;
-    }
+    private Holder holder;
 
     public PublicKey getPublicKey() {
         return publicKey;
+    }
+
+    public X509Certificate[] getCertificatePath() {
+        return certificatePath;
     }
 
     public boolean isSharedSecret() {
@@ -108,77 +140,95 @@ public class JSONDecryptionDecoder {
     }
 
     public DataEncryptionAlgorithms getDataEncryptionAlgorithm() {
-        return dataEncryptionAlgorithm;
+        return holder.dataEncryptionAlgorithm;
     }
 
     public KeyEncryptionAlgorithms getKeyEncryptionAlgorithm() {
         return keyEncryptionAlgorithm;
     }
 
-    JSONDecryptionDecoder(JSONObjectReader encryptionObject) throws IOException {
-        JSONObjectReader rd = checkVersion(encryptionObject);
-        //////////////////////////////////////////////////////////////////////////
-        // Begin JEF normalization                                              //
-        //                                                                      //
-        // 1. Make a shallow copy of the encryption object property list        //
-        LinkedHashMap<String, JSONValue> savedProperties =
-                new LinkedHashMap<String, JSONValue>(rd.root.properties);
-        //                                                                      //
-        // 2. Hide properties for the serializer..                              //
-        rd.root.properties.remove(IV_JSON);                                     //
-        rd.root.properties.remove(TAG_JSON);                                    //
-        rd.root.properties.remove(CIPHER_TEXT_JSON);                            //
-        //                                                                      //
-        // 3. Serialize ("JSON.stringify()")                                    //
-        authenticatedData = rd.serializeToBytes(JSONOutputFormats.NORMALIZED);  //
-        //                                                                      //
-        // 4. Restore encryption object property list                           //
-        rd.root.properties = savedProperties;                                   //
-        //                                                                      //
-        // End JEF normalization                                                //
-        //////////////////////////////////////////////////////////////////////////
-        dataEncryptionAlgorithm = DataEncryptionAlgorithms
-                .getAlgorithmFromId(rd.getString(JSONSignatureDecoder.ALGORITHM_JSON));
-        iv = rd.getBinary(IV_JSON);
-        tag = rd.getBinary(TAG_JSON);
-        if (rd.hasProperty(KEY_ENCRYPTION_JSON)) {
-            JSONObjectReader encryptedKey = checkVersion(rd.getObject(KEY_ENCRYPTION_JSON));
+    /**
+     * Decodes a single encryption element.
+     * @param holder Global data
+     * @param encryptionObject JSON input data
+     * @param last <code>true</code> if this is the final encryption object
+     * @throws IOException
+     */
+    JSONDecryptionDecoder(Holder holder, 
+                          JSONObjectReader encryptionObject,
+                          boolean last) throws IOException {
+        this.holder = holder;
+
+        // Collect keyId if such are permitted
+        keyId = holder.options.getKeyId(encryptionObject);
+
+        // Are we using a key encryption scheme?
+        if (holder.keyEncryption)  {
             keyEncryptionAlgorithm = KeyEncryptionAlgorithms
-                    .getAlgorithmFromId(encryptedKey.getString(JSONSignatureDecoder.ALGORITHM_JSON));
-            if (encryptedKey.hasProperty(JSONSignatureDecoder.PUBLIC_KEY_JSON)) {
-                publicKey = encryptedKey.getPublicKey(AlgorithmPreferences.JOSE);
-            } else {
-                keyId = encryptedKey.getStringConditional(JSONSignatureDecoder.KEY_ID_JSON);
+                        .getAlgorithmFromId(encryptionObject.getString(JSONCryptoHelper.ALGORITHM_JSON));
+            if (keyEncryptionAlgorithm == null) {
+                throw new IOException("Missing \"" + JSONCryptoHelper.ALGORITHM_JSON  + "\"");
             }
+            if (holder.options.requirePublicKeyInfo) {
+                if (encryptionObject.hasProperty(JSONCryptoHelper.CERTIFICATE_PATH)) {
+                    certificatePath = encryptionObject.getCertificatePath();
+                } else if (encryptionObject.hasProperty(JSONCryptoHelper.PUBLIC_KEY_JSON)) {
+                    publicKey = encryptionObject.getPublicKey(holder.options.algorithmPreferences);
+                } else {
+                    throw new IOException("Missing key information");
+                }
+            }
+
             if (keyEncryptionAlgorithm.isKeyWrap()) {
-                encryptedKeyData = encryptedKey.getBinary(ENCRYPTED_KEY_JSON);
+                encryptedKeyData = encryptionObject.getBinary(JSONCryptoHelper.CIPHER_TEXT_JSON);
             }
             if (!keyEncryptionAlgorithm.isRsa()) {
                 ephemeralPublicKey =
-                        (ECPublicKey) encryptedKey.getObject(EPHEMERAL_KEY_JSON).getCorePublicKey(AlgorithmPreferences.JOSE);
+                        (ECPublicKey) encryptionObject
+                            .getObject(JSONCryptoHelper.EPHEMERAL_KEY_JSON)
+                                .getCorePublicKey(holder.options.algorithmPreferences);
             }
         } else {
             sharedSecretMode = true;
-            keyId = rd.getStringConditional(JSONSignatureDecoder.KEY_ID_JSON);
         }
-        encryptedData = rd.getBinary(CIPHER_TEXT_JSON);
-        rd.checkForUnread();
+
+        // An encryption object may also hold "extension" data
+        holder.options.getExtensions(encryptionObject, holder.globalEncryptionObject, extensions);
+
+        if (last) {
+            // The MUST NOT be any unknown elements inside of a JEF object
+            holder.globalEncryptionObject.checkForUnread();
+        }
     }
 
     private byte[] localDecrypt(byte[] dataDecryptionKey) throws IOException, GeneralSecurityException {
-        return EncryptionCore.contentDecryption(dataEncryptionAlgorithm,
+        return EncryptionCore.contentDecryption(holder.dataEncryptionAlgorithm,
                                                 dataDecryptionKey,
-                                                encryptedData,
-                                                iv,
-                                                authenticatedData,
-                                                tag);
+                                                holder.encryptedData,
+                                                holder.iv,
+                                                holder.authenticatedData,
+                                                holder.tag);
     }
 
+    /**
+     * Decrypt data based on a specific symmetric key.
+     * @param dataDecryptionKey Symmetric key
+     * @return Decrypted data
+     * @throws IOException &nbsp;
+     * @throws GeneralSecurityException &nbsp;
+     */
     public byte[] getDecryptedData(byte[] dataDecryptionKey) throws IOException, GeneralSecurityException {
         require(false);
         return localDecrypt(dataDecryptionKey);
     }
 
+    /**
+     * Decrypt data based on a specific private key.
+     * @param privateKey The private key
+     * @return Decrypted data
+     * @throws IOException &nbsp;
+     * @throws GeneralSecurityException &nbsp;
+     */
     public byte[] getDecryptedData(PrivateKey privateKey) throws IOException, GeneralSecurityException {
         require(true);
         return localDecrypt(keyEncryptionAlgorithm.isRsa() ?
@@ -187,14 +237,21 @@ public class JSONDecryptionDecoder {
                                              privateKey)
                                                            :
                 EncryptionCore.receiverKeyAgreement(keyEncryptionAlgorithm,
-                                                    dataEncryptionAlgorithm,
+                                                    holder.dataEncryptionAlgorithm,
                                                     ephemeralPublicKey,
                                                     privateKey,
                                                     encryptedKeyData));
     }
 
+    /**
+     * Decrypt data based on a collection of possible [private] keys.
+     * @param decryptionKeys Collection
+     * @return Decrypted data
+     * @throws IOException &nbsp;
+     * @throws GeneralSecurityException &nbsp;
+     */
     public byte[] getDecryptedData(Vector<DecryptionKeyHolder> decryptionKeys)
-            throws IOException, GeneralSecurityException {
+    throws IOException, GeneralSecurityException {
         boolean notFound = true;
         for (DecryptionKeyHolder decryptionKey : decryptionKeys) {
             if ((decryptionKey.getKeyId() != null && decryptionKey.getKeyId().equals(keyId)) || 
@@ -206,5 +263,53 @@ public class JSONDecryptionDecoder {
             }
         }
         throw new IOException(notFound ? "No matching key found" : "No matching key+algorithm found");
+    }
+
+    /**
+     *  JEF (JSON Encryption Format) support.
+     *  This class can be used for automatically selecting the proper asymmetric private key
+     *  to use for decryption among a set of possible keys.
+     */
+    public static class DecryptionKeyHolder {
+
+        PublicKey publicKey;
+
+        PrivateKey privateKey;
+        
+        String optionalKeyId;
+
+        KeyEncryptionAlgorithms keyEncryptionAlgorithm;
+
+        public PublicKey getPublicKey() {
+            return publicKey;
+        }
+
+        public PrivateKey getPrivateKey() {
+            return privateKey;
+        }
+
+        public String getKeyId() {
+            return optionalKeyId;
+        }
+
+        public KeyEncryptionAlgorithms getKeyEncryptionAlgorithm() {
+            return keyEncryptionAlgorithm;
+        }
+
+        public DecryptionKeyHolder(PublicKey publicKey, 
+                                   PrivateKey privateKey,
+                                   KeyEncryptionAlgorithms keyEncryptionAlgorithm,
+                                   String optionalKeyId) {
+            this.publicKey = publicKey;
+            this.privateKey = privateKey;
+            this.keyEncryptionAlgorithm = keyEncryptionAlgorithm;
+            this.optionalKeyId = optionalKeyId;
+        }
+    }
+
+    static void keyWrapCheck(KeyEncryptionAlgorithms keyEncryptionAlgorithm) throws IOException {
+        if (!keyEncryptionAlgorithm.keyWrap) {
+            throw new IOException("Multiple encryptions only permitted for key wrapping schemes");
+        }
     }
 }

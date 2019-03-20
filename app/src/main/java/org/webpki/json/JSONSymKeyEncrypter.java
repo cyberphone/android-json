@@ -14,25 +14,28 @@
  *  limitations under the License.
  *
  */
-package org.webpki.crypto;
+package org.webpki.json;
 
 import java.io.IOException;
 
 /**
- * Crypto algorithm base interface
+ * Initiator object for symmetric key encryptions.
  */
-public interface CryptoAlgorithms {
+public class JSONSymKeyEncrypter extends JSONEncrypter {
 
-    public boolean isMandatorySksAlgorithm();
+    private static final long serialVersionUID = 1L;
 
-    public String getAlgorithmId(AlgorithmPreferences algorithmPreferences) throws IOException;
+     /**
+     * Constructor for JCE based solutions.
+     * @param contentEncryptionKey Symmetric key
+     * @throws IOException &nbsp;
+     */
+    public JSONSymKeyEncrypter(byte[] contentEncryptionKey) throws IOException {
+        this.contentEncryptionKey = contentEncryptionKey;
+        this.keyEncryptionAlgorithm = null;
+    }
 
-    public String getOid();
-
-    public String getJceName();
-
-    public boolean isSymmetric();
-    
-    public boolean isDeprecated();
-
+    @Override
+    void writeKeyData(JSONObjectWriter wr) throws IOException {
+    }
 }

@@ -1,5 +1,5 @@
 /*
- *  Copyright 2006-2016 WebPKI.org (http://webpki.org).
+ *  Copyright 2006-2018 WebPKI.org (http://webpki.org).
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -24,8 +24,11 @@ import java.math.BigInteger;
 
 import java.security.cert.X509Certificate;
 
+import java.util.EnumSet;
 import java.util.GregorianCalendar;
 import java.util.Vector;
+
+import org.webpki.crypto.CertificateUtil;
 
 import org.webpki.util.Base64URL;
 import org.webpki.util.ISODateTime;
@@ -53,30 +56,42 @@ public class JSONArrayReader implements Serializable {
         return index < array.size();
     }
 
+    public boolean isLastElement() {
+        return index == array.size() - 1;
+    }
+
+    public int size() {
+        return array.size();
+    }
+
     void inRangeCheck() throws IOException {
         if (!hasMore()) {
             throw new IOException("Trying to read past of array limit: " + index);
         }
     }
 
-    Object get(JSONTypes expectedType) throws IOException {
+    JSONValue getNextElementCore(JSONTypes expectedType) throws IOException {
         inRangeCheck();
         JSONValue value = array.elementAt(index++);
         value.readFlag = true;
         JSONTypes.compatibilityTest(expectedType, value);
-        return value.value;
+        return value;
+    }
+
+    Object getNextElement(JSONTypes expectedType) throws IOException {
+        return getNextElementCore(expectedType).value;
     }
 
     public String getString() throws IOException {
-        return (String) get(JSONTypes.STRING);
+        return (String) getNextElement(JSONTypes.STRING);
     }
 
     public int getInt() throws IOException {
-        return JSONObjectReader.parseInt((String) get(JSONTypes.NUMBER));
+        return JSONObjectReader.parseInt(getNextElementCore(JSONTypes.NUMBER));
     }
 
     public long getInt53() throws IOException {
-        return JSONObjectReader.parseLong((String) get(JSONTypes.NUMBER));
+        return JSONObjectReader.parseLong(getNextElementCore(JSONTypes.NUMBER));
     }
 
     public long getLong() throws IOException {
@@ -84,23 +99,27 @@ public class JSONArrayReader implements Serializable {
     }
 
     public double getDouble() throws IOException {
-        return Double.valueOf((String) get(JSONTypes.NUMBER));
+        return Double.valueOf((String) getNextElement(JSONTypes.NUMBER));
     }
 
     public BigInteger getBigInteger() throws IOException {
         return JSONObjectReader.parseBigInteger(getString());
     }
 
+    public BigDecimal getMoney() throws IOException {
+        return JSONObjectReader.parseMoney(getString(), null);
+    }
+
+    public BigDecimal getMoney(Integer decimals) throws IOException {
+        return JSONObjectReader.parseMoney(getString(), decimals);
+    }
+
     public BigDecimal getBigDecimal() throws IOException {
-        return JSONObjectReader.parseBigDecimal(getString(), null);
+        return JSONObjectReader.parseBigDecimal(getString());
     }
 
-    public BigDecimal getBigDecimal(Integer decimals) throws IOException {
-        return JSONObjectReader.parseBigDecimal(getString(), decimals);
-    }
-
-    public GregorianCalendar getDateTime() throws IOException {
-        return ISODateTime.parseDateTime(getString());
+    public GregorianCalendar getDateTime(EnumSet<ISODateTime.DatePatterns> format) throws IOException {
+        return ISODateTime.parseDateTime(getString(), format);
     }
 
     public byte[] getBinary() throws IOException {
@@ -108,7 +127,7 @@ public class JSONArrayReader implements Serializable {
     }
 
     public boolean getBoolean() throws IOException {
-        return new Boolean((String) get(JSONTypes.BOOLEAN));
+        return new Boolean((String) getNextElement(JSONTypes.BOOLEAN));
     }
 
     public boolean getIfNULL() throws IOException {
@@ -121,7 +140,7 @@ public class JSONArrayReader implements Serializable {
 
     @SuppressWarnings("unchecked")
     public JSONArrayReader getArray() throws IOException {
-        return new JSONArrayReader((Vector<JSONValue>) get(JSONTypes.ARRAY));
+        return new JSONArrayReader((Vector<JSONValue>) getNextElement(JSONTypes.ARRAY));
     }
 
     public JSONTypes getElementType() throws IOException {
@@ -130,11 +149,11 @@ public class JSONArrayReader implements Serializable {
     }
 
     public JSONObjectReader getObject() throws IOException {
-        return new JSONObjectReader((JSONObject) get(JSONTypes.OBJECT));
+        return new JSONObjectReader((JSONObject) getNextElement(JSONTypes.OBJECT));
     }
 
     public void scanAway() throws IOException {
-        get(getElementType());
+        getNextElement(getElementType());
     }
 
     public Vector<byte[]> getBinaryArray() throws IOException {
@@ -145,7 +164,22 @@ public class JSONArrayReader implements Serializable {
         return blobs;
     }
 
-    public X509Certificate[] getCertificatePath () throws IOException {
-        return JSONSignatureDecoder.makeCertificatePath(getBinaryArray());
+    public X509Certificate[] getCertificatePath() throws IOException {
+        Vector<byte[]> blobs = new Vector<byte[]>();
+        do {
+            blobs.add(Base64URL.decode(getString()));
+        } while (hasMore());
+        return CertificateUtil.makeCertificatePath(blobs);
+    }
+
+    public JSONSignatureDecoder getSignature(JSONCryptoHelper.Options options) throws IOException {
+        options.encryptionMode(false);
+        JSONObject dummy = new JSONObject();
+        dummy.properties.put(null, new JSONValue(JSONTypes.ARRAY, array));
+        int save = index;
+        index = array.size() - 1;
+        JSONObjectReader signature = getObject();
+        index = save;
+        return new JSONSignatureDecoder(new JSONObjectReader(dummy), signature, signature, options);
     }
 }

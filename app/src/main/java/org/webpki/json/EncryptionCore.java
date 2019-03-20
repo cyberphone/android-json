@@ -1,5 +1,5 @@
 /*
- *  Copyright 2006-2016 WebPKI.org (http://webpki.org).
+ *  Copyright 2006-2018 WebPKI.org (http://webpki.org).
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@
  *  limitations under the License.
  *
  */
-package org.webpki.json.encryption;
+package org.webpki.json;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -40,6 +40,7 @@ import javax.crypto.spec.GCMParameterSpec;
 import javax.crypto.spec.IvParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
 
+import org.webpki.crypto.CryptoRandom;
 import org.webpki.crypto.KeyAlgorithms;
 
 import org.webpki.util.ArrayUtil;
@@ -49,8 +50,59 @@ import org.webpki.util.ArrayUtil;
  * Implements a subset of the RFC7516 (JWE) algorithms
  */
 
-public final class EncryptionCore {
+class EncryptionCore {
 
+    /**
+     * Return object for symmetric key encryptions.
+     */
+    static class SymmetricEncryptionResult {
+        byte[] tag;
+        byte[] cipherText;
+
+        SymmetricEncryptionResult(byte[] tag, byte[] cipherText) {
+            this.tag = tag;
+            this.cipherText = cipherText;
+        }
+
+        byte[] getTag() {
+            return tag;
+        }
+
+        byte[] getCipherText() {
+            return cipherText;
+        }
+    }
+
+    /**
+     * Return object for ECDH and RSA encryptions.
+     */
+    static class AsymmetricEncryptionResult {
+
+        private byte[] contentEncryptionKey;
+        private byte[] encryptedKeyData;
+        private ECPublicKey ephemeralKey;
+
+        AsymmetricEncryptionResult(byte[] contentEncryptionKey,
+                                   byte[] encryptedKeyData,
+                                   ECPublicKey ephemeralKey) {
+            this.contentEncryptionKey = contentEncryptionKey;
+            this.encryptedKeyData = encryptedKeyData;
+            this.ephemeralKey = ephemeralKey;
+        }
+
+        byte[] getDataEncryptionKey() {
+            return contentEncryptionKey;
+        }
+
+        byte[] getEncryptedKeyData() {
+            return encryptedKeyData;
+        }
+
+        ECPublicKey getEphemeralKey() {
+            return ephemeralKey;
+        }
+    }
+    
     private EncryptionCore() {} // Static and final class
     
     // AES CBC static
@@ -161,16 +213,6 @@ public final class EncryptionCore {
         return cipher.doFinal(data);
     }
 
-    /**
-     * Generate byte[] with random data.
-     * @param length Number of bytes
-     * @return byte[]
-     */
-    public static byte[] generateRandom(int length) {
-        byte[] random = new byte[length];
-        new SecureRandom().nextBytes(random);
-        return random;
-    }
 
     private static void check(byte[] parameter,
                               String parameterName,
@@ -188,32 +230,37 @@ public final class EncryptionCore {
                                                dataEncryptionAlgorithm);
         }
     }
-    
+ 
+    static byte[] createIv(DataEncryptionAlgorithms dataEncryptionAlgorithm) {
+        return CryptoRandom.generateRandom(dataEncryptionAlgorithm.ivLength);
+    }
+
     /**
      * Perform a symmetric key encryption.
      * @param dataEncryptionAlgorithm Algorithm to use
      * @param key Encryption key
+     * @param iv Initialization vector
      * @param plainText The data to be encrypted
      * @param authData Additional input factor for authentication
      * @return A composite object including encrypted data
      * @throws GeneralSecurityException &nbsp;
      */
-    public static SymmetricEncryptionResult contentEncryption(DataEncryptionAlgorithms dataEncryptionAlgorithm,
-                                                              byte[] key,
-                                                              byte[] plainText,
-                                                              byte[] authData) throws GeneralSecurityException {
+    public static SymmetricEncryptionResult dataEncryption(DataEncryptionAlgorithms dataEncryptionAlgorithm,
+                                                           byte[] key,
+                                                           byte[] iv,
+                                                           byte[] plainText,
+                                                           byte[] authData) throws GeneralSecurityException {
         check(key, "key", dataEncryptionAlgorithm.keyLength, dataEncryptionAlgorithm);
-        byte[] iv = generateRandom(dataEncryptionAlgorithm.ivLength);
-         if (dataEncryptionAlgorithm.gcm) {
+        if (dataEncryptionAlgorithm.gcm) {
             byte[] cipherOutput = aesGcmCore(Cipher.ENCRYPT_MODE, key, iv, authData, plainText);
             int tagPos = cipherOutput.length - AES_GCM_TAG_LENGTH;
             byte[] cipherText = ArrayUtil.copy(cipherOutput, tagPos);
             byte[] tag = new byte[AES_GCM_TAG_LENGTH];
             System.arraycopy(cipherOutput, tagPos, tag, 0, AES_GCM_TAG_LENGTH);
-            return new SymmetricEncryptionResult(iv, tag, cipherText);
+            return new SymmetricEncryptionResult(tag, cipherText);
         }
         byte[] cipherText = aesCbcCore(Cipher.ENCRYPT_MODE, key, iv, plainText, dataEncryptionAlgorithm);
-        return new SymmetricEncryptionResult(iv, getTag(key, cipherText, iv, authData, dataEncryptionAlgorithm), cipherText);
+        return new SymmetricEncryptionResult(getTag(key, cipherText, iv, authData, dataEncryptionAlgorithm), cipherText);
     }
 
     /**
@@ -243,26 +290,6 @@ public final class EncryptionCore {
             throw new GeneralSecurityException("Authentication error on algorithm: " + dataEncryptionAlgorithm);
         }
         return aesCbcCore(Cipher.DECRYPT_MODE, key, iv, cipherText, dataEncryptionAlgorithm);
-    }
-
-    /**
-     * Generate a random key and encrypt it using an RSA cipher.
-     * @param keyEncryptionAlgorithm Algorithm to use
-     * @param dataEncryptionAlgorithm The designated content encryption algorithm
-     * @param publicKey The RSA key
-     * @return A composite object including the data encryption key
-     * @throws GeneralSecurityException &nbsp;
-     */
-    public static AsymmetricEncryptionResult rsaEncryptKey(KeyEncryptionAlgorithms keyEncryptionAlgorithm,
-                                                           DataEncryptionAlgorithms dataEncryptionAlgorithm,
-                                                           PublicKey publicKey) throws GeneralSecurityException {
-        byte[] dataEncryptionKey = generateRandom(dataEncryptionAlgorithm.keyLength);
-        return new AsymmetricEncryptionResult(dataEncryptionKey,
-                                              rsaCore(Cipher.ENCRYPT_MODE,
-                                                      publicKey,
-                                                      dataEncryptionKey,
-                                                      keyEncryptionAlgorithm),
-                                              null);
     }
 
     /**
@@ -375,6 +402,28 @@ public final class EncryptionCore {
 
     /**
      * Perform a sender side ECDH operation.
+     * @param contentEncryptionKey Also known as CEK
+     * @param keyEncryptionAlgorithm The ECDH algorithm
+     * @param dataEncryptionAlgorithm The designated content encryption algorithm
+     * @param publicKey The receiver's (usually static) public key
+     * @return A composite object including the (plain text) data encryption key
+     * @throws GeneralSecurityException &nbsp;
+     */
+    static AsymmetricEncryptionResult rsaEncryptKey(byte[] contentEncryptionKey,
+                                                    KeyEncryptionAlgorithms keyEncryptionAlgorithm,
+                                                    DataEncryptionAlgorithms dataEncryptionAlgorithm,
+                                                    PublicKey publicKey) throws GeneralSecurityException {
+        return new AsymmetricEncryptionResult(contentEncryptionKey,
+                                              rsaCore(Cipher.ENCRYPT_MODE,
+                                                      publicKey,
+                                                      contentEncryptionKey,
+                                                      keyEncryptionAlgorithm),
+                                              null);
+    }
+
+    /**
+     * Perform a sender side ECDH operation.
+     * @param contentEncryptionKey Also known as CEK
      * @param keyEncryptionAlgorithm The ECDH algorithm
      * @param dataEncryptionAlgorithm The designated content encryption algorithm
      * @param staticKey The receiver's (usually static) public key
@@ -382,12 +431,12 @@ public final class EncryptionCore {
      * @throws GeneralSecurityException &nbsp;
      * @throws IOException &nbsp;
      */
-    public static AsymmetricEncryptionResult senderKeyAgreement(KeyEncryptionAlgorithms keyEncryptionAlgorithm,
-                                                                DataEncryptionAlgorithms dataEncryptionAlgorithm,
-                                                                PublicKey staticKey) 
-    throws GeneralSecurityException, IOException {
+    static AsymmetricEncryptionResult senderKeyAgreement(byte[] contentEncryptionKey,
+                                                         KeyEncryptionAlgorithms keyEncryptionAlgorithm,
+                                                         DataEncryptionAlgorithms dataEncryptionAlgorithm,
+                                                         PublicKey staticKey) throws IOException, GeneralSecurityException {
         KeyPairGenerator generator = ecProviderName == null ?
-                         KeyPairGenerator.getInstance("EC") : KeyPairGenerator.getInstance("EC", ecProviderName);
+                KeyPairGenerator.getInstance("EC") : KeyPairGenerator.getInstance("EC", ecProviderName);
         ECGenParameterSpec eccgen = new ECGenParameterSpec(KeyAlgorithms.getKeyAlgorithm(staticKey).getJceName());
         generator.initialize(eccgen, new SecureRandom());
         KeyPair keyPair = generator.generateKeyPair();
@@ -397,7 +446,6 @@ public final class EncryptionCore {
                                              keyPair.getPrivate());
         byte[] encryptedKeyData = null;
         if (keyEncryptionAlgorithm.keyWrap) {
-            byte[] contentEncryptionKey = generateRandom(dataEncryptionAlgorithm.keyLength);
             Cipher cipher = getAesCipher(AES_KEY_WRAP_JCENAME);
             cipher.init(Cipher.WRAP_MODE, new SecretKeySpec(derivedKey, "AES"));
             encryptedKeyData = cipher.wrap(new SecretKeySpec(contentEncryptionKey, "AES"));

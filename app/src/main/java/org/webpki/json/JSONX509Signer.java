@@ -1,5 +1,5 @@
 /*
- *  Copyright 2006-2016 WebPKI.org (http://webpki.org).
+ *  Copyright 2006-2018 WebPKI.org (http://webpki.org).
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -25,13 +25,14 @@ import java.security.cert.X509Certificate;
 
 import org.webpki.crypto.AsymSignatureAlgorithms;
 import org.webpki.crypto.AlgorithmPreferences;
+import org.webpki.crypto.CertificateUtil;
 import org.webpki.crypto.KeyAlgorithms;
 import org.webpki.crypto.SignatureAlgorithms;
 import org.webpki.crypto.SignatureWrapper;
 import org.webpki.crypto.SignerInterface;
 
 /**
- * Initiatiator object for X.509 signatures.
+ * Initiator object for X.509 signatures.
  */
 public class JSONX509Signer extends JSONSigner {
 
@@ -43,8 +44,6 @@ public class JSONX509Signer extends JSONSigner {
 
     X509Certificate[] certificatePath;
 
-    boolean outputSignatureCertificateAttributes;
-
     /**
      * Constructor for custom crypto solutions.
      * @param signer Handle to implementation
@@ -52,7 +51,7 @@ public class JSONX509Signer extends JSONSigner {
      */
     public JSONX509Signer(SignerInterface signer) throws IOException {
         this.signer = signer;
-        certificatePath = signer.getCertificatePath();
+        certificatePath = CertificateUtil.checkCertificatePath(signer.getCertificatePath());
         algorithm = KeyAlgorithms.getKeyAlgorithm(certificatePath[0].getPublicKey()).getRecommendedSignatureAlgorithm();
     }
 
@@ -90,11 +89,6 @@ public class JSONX509Signer extends JSONSigner {
         return this;
     }
 
-    public JSONX509Signer setSignatureCertificateAttributes(boolean flag) {
-        outputSignatureCertificateAttributes = flag;
-        return this;
-    }
-
     public JSONX509Signer setAlgorithmPreferences(AlgorithmPreferences algorithmPreferences) {
         super.algorithmPreferences = algorithmPreferences;
         return this;
@@ -112,13 +106,6 @@ public class JSONX509Signer extends JSONSigner {
 
     @Override
     void writeKeyData(JSONObjectWriter wr) throws IOException {
-        if (outputSignatureCertificateAttributes) {
-            X509Certificate signerCertificate = certificatePath[0];
-            wr.setObject(JSONSignatureDecoder.SIGNER_CERTIFICATE_JSON)
-                .setString(JSONSignatureDecoder.ISSUER_JSON, signerCertificate.getIssuerX500Principal().getName())
-                .setBigInteger(JSONSignatureDecoder.SERIAL_NUMBER_JSON, signerCertificate.getSerialNumber())
-                .setString(JSONSignatureDecoder.SUBJECT_JSON, signerCertificate.getSubjectX500Principal().getName());
-        }
         wr.setCertificatePath(certificatePath);
     }
 }

@@ -1,5 +1,5 @@
 /*
- *  Copyright 2006-2016 WebPKI.org (http://webpki.org).
+ *  Copyright 2006-2018 WebPKI.org (http://webpki.org).
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -24,7 +24,7 @@ import org.webpki.crypto.SymKeyVerifierInterface;
 import org.webpki.util.ArrayUtil;
 
 /**
- * Initiatiator object for symmetric key signature verifiers.
+ * Initiator object for symmetric key signature verifiers.
  */
 public class JSONSymKeyVerifier extends JSONVerifier {
 
@@ -65,9 +65,11 @@ public class JSONSymKeyVerifier extends JSONVerifier {
 
     @Override
     void verify(JSONSignatureDecoder signatureDecoder) throws IOException {
-        signatureDecoder.checkVerification(verifier.verifyData(signatureDecoder.normalizedData,
-                                                               signatureDecoder.signatureValue,
-                                                               (MACAlgorithms) signatureDecoder.algorithm,
-                                                               signatureDecoder.keyId));
+        if (!verifier.verifyData(signatureDecoder.normalizedData,
+                                 signatureDecoder.signatureValue,
+                                 (MACAlgorithms) signatureDecoder.algorithm,
+                                 signatureDecoder.keyId)) {
+            throw new IOException("Bad signature for key: " + signatureDecoder.keyId);
+        }
     }
 }

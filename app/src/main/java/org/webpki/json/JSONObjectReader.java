@@ -1,5 +1,5 @@
 /*
- *  Copyright 2006-2016 WebPKI.org (http://webpki.org).
+ *  Copyright 2006-2018 WebPKI.org (http://webpki.org).
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -27,15 +27,13 @@ import java.security.PublicKey;
 
 import java.security.cert.X509Certificate;
 
+import java.util.EnumSet;
 import java.util.GregorianCalendar;
 import java.util.Vector;
 
 import java.util.regex.Pattern;
 
 import org.webpki.crypto.AlgorithmPreferences;
-
-import org.webpki.json.encryption.DataEncryptionAlgorithms;
-import org.webpki.json.encryption.KeyEncryptionAlgorithms;
 
 import org.webpki.util.Base64URL;
 import org.webpki.util.ISODateTime;
@@ -133,31 +131,31 @@ public class JSONObjectReader implements Serializable, Cloneable {
         return getString(name, JSONTypes.STRING);
     }
 
-    static long parseLong(String value) throws IOException {
-        if (INTEGER_PATTERN.matcher(value).matches()) {
-            double number = Double.valueOf(value);
-            if (Math.abs(number) > JSONObjectWriter.MAX_SAFE_INTEGER) {
-                throw new IOException("Integer values must not exceeed " +
-                        JSONObjectWriter.MAX_SAFE_INTEGER +
-                        ", found: " + value);
-            }
-            return (long) number;
+    static long int53Check(long value) throws IOException {
+        if (value > JSONObjectWriter.MAX_INTEGER || value < -JSONObjectWriter.MAX_INTEGER) {
+            throw new IOException("Int53 values must not exceeed abs(" +
+                    JSONObjectWriter.MAX_INTEGER +
+                    "), found: " + value);
         }
-        throw new IOException("Value is not an integer: " + value);
+        return value;
     }
 
-    static int parseInt(String value) throws IOException {
-        long longValue = parseLong(value);
-        if (longValue > Integer.MAX_VALUE || longValue < Integer.MIN_VALUE) {
-            throw new IOException("Java \"int\" out of range: " + value);
+    static long parseLong(JSONValue jsonValue) throws IOException {
+        return int53Check(Long.valueOf((String) jsonValue.value));
+    }
+
+    static int parseInt(JSONValue jsonValue) throws IOException {
+        long value = parseLong(jsonValue);
+        if (value > Integer.MAX_VALUE || value < Integer.MIN_VALUE) {
+            throw new IOException("Int32 value out of range: " + value);
         }
-        return (int) longValue;
+        return (int) value;
     }
 
     static long convertBigIntegerToLong(BigInteger value) throws IOException {
         long longValue = value.longValue();
         if (BigInteger.valueOf(longValue).compareTo(value) != 0) {
-            throw new IOException("Java \"long\" out of range: " + value);
+            throw new IOException("Int64 value out of range: " + value);
         }
         return longValue;
     }
@@ -171,7 +169,7 @@ public class JSONObjectReader implements Serializable, Cloneable {
      * @see JSONObjectWriter#setInt(String, int)
      */
     public int getInt(String name) throws IOException {
-        return parseInt(getString(name, JSONTypes.NUMBER));
+        return parseInt(getProperty(name, JSONTypes.NUMBER));
     }
 
     /**
@@ -183,11 +181,11 @@ public class JSONObjectReader implements Serializable, Cloneable {
      * @return Java <code>long</code>
      * @throws IOException &nbsp;
      * @see JSONObjectWriter#setInt53(String, long)
-     * @see JSONObjectWriter#MAX_SAFE_INTEGER
+     * @see JSONObjectWriter#MAX_INTEGER
      * @see #getBigInteger(String)
      */
     public long getInt53(String name) throws IOException {
-        return parseLong(getString(name, JSONTypes.NUMBER));
+        return parseLong(getProperty(name, JSONTypes.NUMBER));
     }
 
     /**
@@ -232,13 +230,15 @@ public class JSONObjectReader implements Serializable, Cloneable {
      * Read a JSON dateTime property in ISO format.<p>
      * Note: Since JSON does not support a native dateTime type, this method builds on <i>mapping</i>.</p>
      * @param name Property
+     * @param format Required input format
      * @return Java <code>GregorianCalendar</code>
      * @throws IOException &nbsp;
-     * @see org.webpki.util.ISODateTime#parseDateTime(String)
-     * @see JSONObjectWriter#setDateTime(String, GregorianCalendar, boolean)
+     * @see org.webpki.util.ISODateTime#parseDateTime(String, EnumSet)
+     * @see JSONObjectWriter#setDateTime(String, GregorianCalendar, EnumSet)
      */
-    public GregorianCalendar getDateTime(String name) throws IOException {
-        return ISODateTime.parseDateTime(getString(name));
+    public GregorianCalendar getDateTime(String name, 
+                                         EnumSet<ISODateTime.DatePatterns> format) throws IOException {
+        return ISODateTime.parseDateTime(getString(name), format);
     }
 
     /**
@@ -263,14 +263,7 @@ public class JSONObjectReader implements Serializable, Cloneable {
         return hasProperty(name) ? getBinary(name) : null;
     }
 
-    static BigInteger parseBigInteger(String value) throws IOException {
-        if (INTEGER_PATTERN.matcher(value).matches()) {
-            return new BigInteger(value);
-        }
-        throw new IOException("Malformed \"BigInteger\": " + value);
-    }
-
-    static BigDecimal parseBigDecimal(String value, Integer decimals) throws IOException {
+    static BigDecimal parseMoney(String value, Integer decimals) throws IOException {
         if (INTEGER_PATTERN.matcher(value).matches() ||
                 DECIMAL_PATTERN.matcher(value).matches()) {
             BigDecimal parsed = new BigDecimal(value);
@@ -283,6 +276,58 @@ public class JSONObjectReader implements Serializable, Cloneable {
     }
 
     /**
+     * Read a Money property.<p>
+     * Note: Since JSON does not support a native Money type, this method builds on <i>mapping</i>.</p>
+     * Note: This method is equivalent to <code>getMoney(name, null)</code>.
+     * @param name Property
+     * @return Java <code>BigInteger</code>
+     * @throws IOException &nbsp;
+     * @see JSONObjectWriter#setMoney(String, BigDecimal)
+     */
+    public BigDecimal getMoney(String name) throws IOException {
+        return parseMoney(getString(name), null);
+    }
+
+    /**
+     * Read a Money property.<p>
+     * Note: Since JSON does not support a native Money type, this method builds on <i>mapping</i>.</p>
+     * @param name Property
+     * @param decimals Required number of fractional digits or <b>null</b> if unspecified
+     * @return Java <code>BigDecimal</code>
+     * @throws IOException &nbsp;
+     * @see JSONObjectWriter#setMoney(String, BigDecimal, Integer)
+     */
+    public BigDecimal getMoney(String name, Integer decimals) throws IOException {
+        return parseMoney(getString(name), decimals);
+    }
+
+    static BigDecimal parseBigDecimal(String value) throws IOException {
+        if (JSONParser.NUMBER_PATTERN.matcher(value).matches()) {
+            return new BigDecimal(value);
+        }
+        throw new IOException("Malformed \"getBigDecimal\": " + value);
+    }
+
+    /**
+     * Read a BigDecimal property.<p>
+     * Note: Since JSON does not support a native BigDecimal type, this method builds on <i>mapping</i>.</p>
+     * @param name Property
+     * @return Java <code>BigInteger</code>
+     * @throws IOException &nbsp;
+     * @see JSONObjectWriter#setBigDecimal(String, BigDecimal)
+     */
+    public BigDecimal getBigDecimal(String name) throws IOException {
+        return parseBigDecimal(getString(name));
+    }
+
+    static BigInteger parseBigInteger(String value) throws IOException {
+        if (INTEGER_PATTERN.matcher(value).matches()) {
+            return new BigInteger(value);
+        }
+        throw new IOException("Malformed \"BigInteger\": " + value);
+    }
+
+    /**
      * Read a BigInteger property.<p>
      * Note: Since JSON does not support a native BigInteger type, this method builds on <i>mapping</i>.</p>
      * @param name Property
@@ -292,32 +337,6 @@ public class JSONObjectReader implements Serializable, Cloneable {
      */
     public BigInteger getBigInteger(String name) throws IOException {
         return parseBigInteger(getString(name));
-    }
-
-    /**
-     * Read a BigDecimal property.<p>
-     * Note: Since JSON does not support a native BigDecimal type, this method builds on <i>mapping</i>.</p>
-     * Note: This method is equivalent to <code>getBigDecimal(name, null)</code>.
-     * @param name Property
-     * @return Java <code>BigInteger</code>
-     * @throws IOException &nbsp;
-     * @see JSONObjectWriter#setBigDecimal(String, BigDecimal)
-     */
-    public BigDecimal getBigDecimal(String name) throws IOException {
-        return parseBigDecimal(getString(name), null);
-    }
-
-    /**
-     * Read a BigDecimal property.<p>
-     * Note: Since JSON does not support a native BigDecimal type, this method builds on <i>mapping</i>.</p>
-     * @param name Property
-     * @param decimals Required number of fractional digits or <b>null</b> if unspecified
-     * @return Java <code>BigDecimal</code>
-     * @throws IOException &nbsp;
-     * @see JSONObjectWriter#setBigDecimal(String, BigDecimal, Integer)
-     */
-    public BigDecimal getBigDecimal(String name, Integer decimals) throws IOException {
-        return parseBigDecimal(getString(name), decimals);
     }
 
     /**
@@ -494,12 +513,19 @@ public class JSONObjectReader implements Serializable, Cloneable {
      * @return An object which can be used to verify keys etc.
      * @throws IOException &nbsp;
      * @see org.webpki.json.JSONObjectWriter#setSignature(JSONSigner)
-     * @see org.webpki.json.JSONSignatureDecoder.Options
+     * @see org.webpki.json.JSONCryptoHelper.Options
      */
-    public JSONSignatureDecoder getSignature(JSONSignatureDecoder.Options options) throws IOException {
-        return new JSONSignatureDecoder(this,
-                                        getObject(JSONSignatureDecoder.SIGNATURE_JSON),
-                                        options);
+    public JSONSignatureDecoder getSignature(JSONCryptoHelper.Options options) throws IOException {
+        return getSignature(JSONObjectWriter.SIGNATURE_DEFAULT_LABEL_JSON, options);
+    }
+
+    public JSONSignatureDecoder getSignature(String signatureLabel, JSONCryptoHelper.Options options) throws IOException {
+        options.encryptionMode(false);
+        JSONObjectReader signatureObject = getObject(signatureLabel);
+        if (signatureObject.hasProperty(JSONCryptoHelper.SIGNERS_JSON)) {
+            throw new IOException("Use \"getMultiSignature()\" for this object");
+        }
+        return new JSONSignatureDecoder(this, signatureObject, signatureObject, options);
     }
 
     /**
@@ -510,25 +536,28 @@ public class JSONObjectReader implements Serializable, Cloneable {
      * @return List with signature objects
      * @throws IOException &nbsp;
      */
-    public Vector<JSONSignatureDecoder> getSignatures(JSONSignatureDecoder.Options options) throws IOException {
+    public Vector<JSONSignatureDecoder> getMultiSignature(JSONCryptoHelper.Options options) throws IOException {
+        return getMultiSignature(JSONObjectWriter.SIGNATURE_DEFAULT_LABEL_JSON, options);
+    }
+    
+    public Vector<JSONSignatureDecoder> getMultiSignature(String signatureLabel, JSONCryptoHelper.Options options) throws IOException {
+        options.encryptionMode(false);
+        JSONObjectReader outerSignatureObject = getObject(signatureLabel);
+        JSONArrayReader arrayReader = outerSignatureObject.getArray(JSONCryptoHelper.SIGNERS_JSON);
+        @SuppressWarnings("unchecked")
+        Vector<JSONValue> save = (Vector<JSONValue>) arrayReader.array.clone();
         Vector<JSONSignatureDecoder> signatures = new Vector<JSONSignatureDecoder>();
-        JSONArrayReader arrayReader = getArray(JSONSignatureDecoder.SIGNATURES_JSON);
         Vector<JSONObjectReader> signatureObjects = new Vector<JSONObjectReader>();
         do {
             signatureObjects.add(arrayReader.getObject());
         } while(arrayReader.hasMore());
-        @SuppressWarnings("unchecked")
-        Vector<JSONObject> save = (Vector<JSONObject>)root.properties.get(JSONSignatureDecoder.SIGNATURES_JSON).value;
-        int i = 0;
-        for (JSONObjectReader signature : signatureObjects) {
-            Vector<JSONObject> element = new Vector<JSONObject>();
-            element.add(save.get(i++));
-            root.properties.put(JSONSignatureDecoder.SIGNATURES_JSON, 
-                                new JSONValue(JSONTypes.ARRAY, element));
-            signatures.add(new JSONSignatureDecoder(this, signature, options));
+        for (JSONObjectReader innerSignatureObject : signatureObjects) {
+            arrayReader.array.clear();
+            arrayReader.array.add(new JSONValue(JSONTypes.OBJECT, innerSignatureObject.root));
+            signatures.add(new JSONSignatureDecoder(this, innerSignatureObject, outerSignatureObject, options));
         }
-        root.properties.put(JSONSignatureDecoder.SIGNATURES_JSON, 
-                            new JSONValue(JSONTypes.ARRAY, save));
+        arrayReader.array.clear();
+        arrayReader.array.addAll(save);
         return signatures;
     }
 
@@ -543,7 +572,7 @@ public class JSONObjectReader implements Serializable, Cloneable {
      * @see org.webpki.json.JSONObjectWriter#setPublicKey(PublicKey)
      */
     public PublicKey getPublicKey(AlgorithmPreferences algorithmPreferences) throws IOException {
-        return getObject(JSONSignatureDecoder.PUBLIC_KEY_JSON).getCorePublicKey(algorithmPreferences);
+        return getObject(JSONCryptoHelper.PUBLIC_KEY_JSON).getCorePublicKey(algorithmPreferences);
     }
 
     /**
@@ -611,13 +640,48 @@ public class JSONObjectReader implements Serializable, Cloneable {
      * <a href="https://cyberphone.github.io/doc/security/jef.html" target="_blank"><b>JEF</b></a>
      * format.<p>
      * Note: this method assumes that the current object only holds a JEF structure.</p>
+     * @param options Restrictions and requirements
      * @return An object which can be used to retrieve the original (unencrypted) data 
      * @throws IOException &nbsp;
-     * @see org.webpki.json.JSONObjectWriter#createEncryptionObject(byte[],DataEncryptionAlgorithms,PublicKey,String,KeyEncryptionAlgorithms)
-     * @see org.webpki.json.JSONObjectWriter#createEncryptionObject(byte[],DataEncryptionAlgorithms,String,byte[])
+     * @see org.webpki.json.JSONObjectWriter#createEncryptionObject(byte[],DataEncryptionAlgorithms,JSONEncrypter)
+     * @see org.webpki.json.JSONCryptoHelper.Options
      */
-    public JSONDecryptionDecoder getEncryptionObject() throws IOException {
-        return new JSONDecryptionDecoder(this);
+    public JSONDecryptionDecoder getEncryptionObject(JSONCryptoHelper.Options options) throws IOException {
+        options.encryptionMode(true);
+        if (hasProperty(JSONCryptoHelper.RECIPIENTS_JSON)) {
+            throw new IOException("Please use \"getEncryptionObjects()\" for multiple encryption objects");
+        }
+        boolean keyEncryption = hasProperty(JSONCryptoHelper.ENCRYPTED_KEY_JSON);
+        JSONDecryptionDecoder.Holder holder = new JSONDecryptionDecoder.Holder(options, this, keyEncryption);
+        return new JSONDecryptionDecoder(holder, 
+                                         keyEncryption ? getObject(JSONCryptoHelper.ENCRYPTED_KEY_JSON) : this,
+                                         true);
+    }
+
+    /**
+     * Read an object in
+     * <a href="https://cyberphone.github.io/doc/security/jef.html" target="_blank"><b>JEF</b></a>
+     * format intended for <i>multiple recipients</i>.<p>
+     * Note: this method assumes that the current object only holds a JEF structure.</p>
+     * @param options Global restrictions and requirements
+     * @return An object which can be used to retrieve the original (unencrypted) data 
+     * @throws IOException &nbsp;
+     * @see org.webpki.json.JSONObjectWriter#createEncryptionObject(byte[],DataEncryptionAlgorithms,JSONEncrypter)
+     * @see org.webpki.json.JSONCryptoHelper.Options
+     */
+    public Vector<JSONDecryptionDecoder> getEncryptionObjects(JSONCryptoHelper.Options options) throws IOException {
+        options.encryptionMode(true);
+        JSONDecryptionDecoder.Holder holder = new JSONDecryptionDecoder.Holder(options, this, true);
+        JSONArrayReader recipientObjects = getArray(JSONCryptoHelper.RECIPIENTS_JSON);
+        Vector<JSONDecryptionDecoder> recipients = new Vector<JSONDecryptionDecoder>();
+        do {
+            JSONDecryptionDecoder decoder = new JSONDecryptionDecoder(holder, 
+                                                                      recipientObjects.getObject(),
+                                                                      !recipientObjects.hasMore());
+            JSONDecryptionDecoder.keyWrapCheck(decoder.getKeyEncryptionAlgorithm());
+            recipients.add(decoder);
+        } while (recipientObjects.hasMore());
+        return recipients;
     }
 
     /**
@@ -632,7 +696,7 @@ public class JSONObjectReader implements Serializable, Cloneable {
      * @see org.webpki.json.JSONObjectWriter#setCertificatePath(X509Certificate[])
      */
     public X509Certificate[] getCertificatePath() throws IOException {
-        return JSONSignatureDecoder.getCertificatePath(this);
+        return getArray(JSONCryptoHelper.CERTIFICATE_PATH).getCertificatePath();
     }
 
     /**

@@ -18,30 +18,29 @@ package org.webpki.json;
 
 import java.io.IOException;
 
-import org.webpki.crypto.VerifierInterface;
+import java.security.PublicKey;
 
 /**
- * Initiator object for X.509 signature verifiers.
+ * Initiator object for asymmetric key encryptions.
  */
-public class JSONX509Verifier extends JSONVerifier {
+public class JSONAsymKeyEncrypter extends JSONEncrypter {
 
     private static final long serialVersionUID = 1L;
 
-    VerifierInterface verifier;
-
     /**
-     * Verifier for X509-based keys.
-     * Note that you can also access the received X509 key from {@link JSONSignatureDecoder}.
-     *
-     * @param verifier Verifier which presumably would do full PKIX path validation etc.
+     * Constructor for JCE based solutions.
+     * @param publicKey Public key used for encrypting the key
+     * @param keyEncryptionAlgorithm The algorithm used for encrypting the key
+     * @throws IOException &nbsp;
      */
-    public JSONX509Verifier(VerifierInterface verifier) {
-        super(JSONSignatureTypes.X509_CERTIFICATE);
-        this.verifier = verifier;
+    public JSONAsymKeyEncrypter(PublicKey publicKey,
+                                KeyEncryptionAlgorithms keyEncryptionAlgorithm) throws IOException {
+        this.publicKey = publicKey;
+        this.keyEncryptionAlgorithm = keyEncryptionAlgorithm;
     }
 
     @Override
-    void verify(JSONSignatureDecoder signatureDecoder) throws IOException {
-        verifier.verifyCertificatePath(signatureDecoder.certificatePath);
+    void writeKeyData(JSONObjectWriter wr) throws IOException {
+        wr.setPublicKey(publicKey, algorithmPreferences);
     }
 }

@@ -1,5 +1,5 @@
 /*
- *  Copyright 2006-2016 WebPKI.org (http://webpki.org).
+ *  Copyright 2006-2018 WebPKI.org (http://webpki.org).
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -37,9 +37,6 @@ class JSONObject implements Serializable {
     }
 
     void setProperty(String name, JSONValue value) throws IOException {
-        if (name.length() == 0) {
-            throw new IOException("Empty property names not allowed");
-        }
         if (properties.put(name, value) != null) {
             throw new IOException("Duplicate property: " + name);
         }

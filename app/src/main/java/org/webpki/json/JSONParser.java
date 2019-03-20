@@ -1,5 +1,5 @@
 /*
- *  Copyright 2006-2016 WebPKI.org (http://webpki.org).
+ *  Copyright 2006-2018 WebPKI.org (http://webpki.org).
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -37,13 +37,15 @@ public class JSONParser {
     static final char BACK_SLASH          = '\\';
 
     static final Pattern BOOLEAN_PATTERN = Pattern.compile("true|false");
-    static final Pattern NUMBER_PATTERN = Pattern.compile("-?(([0-9]*\\.?[0-9]+)|([0-9]+\\.?[0-9]*))([eE][-+]?[0-9]+)?");
+    static final Pattern NUMBER_PATTERN  = Pattern.compile("-?[0-9]+(\\.[0-9]+)?([eE][-+]?[0-9]+)?");
 
     int index;
 
     int maxLength;
 
     String jsonData;
+    
+    static boolean strictNumericMode = false;
 
     JSONParser() {
     }
@@ -54,7 +56,7 @@ public class JSONParser {
         JSONObject root = new JSONObject();
         if (testNextNonWhiteSpaceChar() == LEFT_BRACKET) {
             scan();
-            root.properties.put(null, scanArray("outer array"));
+            root.properties.put(null, scanArray());
         } else {
             scanFor(LEFT_CURLY_BRACKET);
             scanObject(root);
@@ -87,14 +89,30 @@ public class JSONParser {
         return parse(new String(jsonBytes, "UTF-8"));
     }
 
-    String scanProperty() throws IOException {
-        scanFor(DOUBLE_QUOTE);
-        String property = (String) scanQuotedString().value;
-        if (property.length() == 0) {
-            throw new IOException("Empty property");
+    /**
+     * Define strictness of "Number" parsing.
+     * In strict mode 1.50 and 1e+3 would fail
+     * since they are not normalized.  Default mode is not strict.
+     * @param strict True if strict mode is requested
+     */
+    public static void setStrictNumericMode(boolean strict) {
+        strictNumericMode = strict;
+    }
+
+    JSONValue scanElement() throws IOException {
+        switch (scan()) {
+            case LEFT_CURLY_BRACKET:
+                return scanObject(new JSONObject());
+
+            case DOUBLE_QUOTE:
+                return scanQuotedString();
+
+            case LEFT_BRACKET:
+                return scanArray();
+
+            default:
+                return scanSimpleType();
         }
-        scanFor(COLON_CHARACTER);
-        return property;
     }
 
     JSONValue scanObject(JSONObject holder) throws IOException {
@@ -104,33 +122,17 @@ public class JSONParser {
                 scanFor(COMMA_CHARACTER);
             }
             next = true;
-            String name = scanProperty();
-            JSONValue value;
-            switch (scan()) {
-                case LEFT_CURLY_BRACKET:
-                    value = scanObject(new JSONObject());
-                    break;
-
-                case DOUBLE_QUOTE:
-                    value = scanQuotedString();
-                    break;
-
-                case LEFT_BRACKET:
-                    value = scanArray(name);
-                    break;
-
-                default:
-                    value = scanSimpleType();
-            }
-            holder.setProperty(name, value);
+            scanFor(DOUBLE_QUOTE);
+            String name = (String) scanQuotedString().value;
+            scanFor(COLON_CHARACTER);
+            holder.setProperty(name, scanElement());
         }
         scan();
         return new JSONValue(JSONTypes.OBJECT, holder);
     }
 
-    JSONValue scanArray(String name) throws IOException {
+    JSONValue scanArray() throws IOException {
         Vector<JSONValue> array = new Vector<JSONValue>();
-        JSONValue value = null;
         boolean next = false;
         while (testNextNonWhiteSpaceChar() != RIGHT_BRACKET) {
             if (next) {
@@ -138,23 +140,7 @@ public class JSONParser {
             } else {
                 next = true;
             }
-            switch (scan()) {
-                case LEFT_BRACKET:
-                    value = scanArray(name);
-                    break;
-
-                case LEFT_CURLY_BRACKET:
-                    value = scanObject(new JSONObject());
-                    break;
-
-                case DOUBLE_QUOTE:
-                    value = scanQuotedString();
-                    break;
-
-                default:
-                    value = scanSimpleType();
-            }
-            array.add(value);
+            array.add(scanElement());
         }
         scan();
         return new JSONValue(JSONTypes.ARRAY, array);
@@ -162,7 +148,7 @@ public class JSONParser {
 
     JSONValue scanSimpleType() throws IOException {
         index--;
-        StringBuffer tempBuffer = new StringBuffer();
+        StringBuilder tempBuffer = new StringBuilder();
         char c;
         while ((c = testNextNonWhiteSpaceChar()) != COMMA_CHARACTER && c != RIGHT_BRACKET && c != RIGHT_CURLY_BRACKET) {
             if (isWhiteSpace(c = nextChar())) {
@@ -170,25 +156,36 @@ public class JSONParser {
             }
             tempBuffer.append(c);
         }
-        String result = tempBuffer.toString();
-        if (result.length() == 0) {
+        String token = tempBuffer.toString();
+        if (token.length() == 0) {
             throw new IOException("Missing argument");
         }
         JSONTypes type = JSONTypes.NUMBER;
-        if (!NUMBER_PATTERN.matcher(result).matches()) {
-            if (BOOLEAN_PATTERN.matcher(result).matches()) {
-                type = JSONTypes.BOOLEAN;
-            } else if (result.equals("null")) {
-                type = JSONTypes.NULL;
-            } else {
-                throw new IOException("Syntax error: " + result);
+        if (NUMBER_PATTERN.matcher(token).matches()) {
+            double number = Double.valueOf(token);  // Syntax check...
+            if (strictNumericMode) {
+                String serializedNumber = NumberToJSON.serializeNumber(number);
+                if (!serializedNumber.equals(token)) {
+                    throw new IOException("In the \"strict\" mode JSON Numbers must be fully normalized " +
+                                          "according to ES6+.  As a consequence " + token + 
+                                          " must be expressed as " + serializedNumber);
+                }
+                JSONValue strictNum = new JSONValue(type, token);
+                strictNum.preSet = true;
+                return strictNum;
             }
+        } else if (BOOLEAN_PATTERN.matcher(token).matches()) {
+            type = JSONTypes.BOOLEAN;
+        } else if (token.equals("null")) {
+            type = JSONTypes.NULL;
+        } else {
+            throw new IOException("Unrecognized or malformed JSON token: " + token);
         }
-        return new JSONValue(type, result);
+        return new JSONValue(type, token);
     }
 
     JSONValue scanQuotedString() throws IOException {
-        StringBuffer result = new StringBuffer();
+        StringBuilder result = new StringBuilder();
         while (true) {
             char c = nextChar();
             if (c < ' ') {

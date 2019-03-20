@@ -1,5 +1,5 @@
 /*
- *  Copyright 2006-2016 WebPKI.org (http://webpki.org).
+ *  Copyright 2006-2018 WebPKI.org (http://webpki.org).
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -26,8 +26,11 @@ import java.security.GeneralSecurityException;
 
 import java.security.cert.X509Certificate;
 
+import java.util.EnumSet;
 import java.util.GregorianCalendar;
 import java.util.Vector;
+
+import org.webpki.crypto.CertificateUtil;
 
 import org.webpki.util.Base64URL;
 import org.webpki.util.ISODateTime;
@@ -58,6 +61,10 @@ public class JSONArrayWriter implements Serializable {
         array = new Vector<JSONValue>();
     }
 
+    public JSONArrayWriter(JSONArrayReader reader) {
+        array = reader.array;
+    }
+
     JSONArrayWriter add(JSONTypes type, Object value) throws IOException {
         array.add(new JSONValue(type, value));
         return this;
@@ -67,29 +74,28 @@ public class JSONArrayWriter implements Serializable {
         return add(JSONTypes.STRING, value);
     }
 
-    public JSONArrayWriter setNumberAsText(String value) throws IOException {
-        array.add(JSONObjectWriter.setNumberAsText(value));
-        return this;
-    }
-
     public JSONArrayWriter setInt(int value) throws IOException {
         return setInt53(value);
     }
 
     public JSONArrayWriter setInt53(long value) throws IOException {
-        return add(JSONTypes.NUMBER, JSONObjectWriter.es6Long2NumberConversion(value));
+        return add(JSONTypes.NUMBER, JSONObjectWriter.serializeLong(value));
     }
 
     public JSONArrayWriter setLong(long value) throws IOException {
         return setBigInteger(BigInteger.valueOf(value));
     }
 
-    public JSONArrayWriter setBigDecimal(BigDecimal value) throws IOException {
-        return setString(JSONObjectWriter.bigDecimalToString(value, null));
+    public JSONArrayWriter setMoney(BigDecimal value) throws IOException {
+        return setString(JSONObjectWriter.moneyToString(value, null));
     }
 
-    public JSONArrayWriter setBigDecimal(BigDecimal value, Integer decimals) throws IOException {
-        return setString(JSONObjectWriter.bigDecimalToString(value, decimals));
+    public JSONArrayWriter setMoney(BigDecimal value, Integer decimals) throws IOException {
+        return setString(JSONObjectWriter.moneyToString(value, decimals));
+    }
+
+    public JSONArrayWriter setBigDecimal(BigDecimal value) throws IOException {
+        return setString(JSONObjectWriter.bigDecimalToString(value));
     }
 
     public JSONArrayWriter setBigInteger(BigInteger value) throws IOException {
@@ -97,7 +103,7 @@ public class JSONArrayWriter implements Serializable {
     }
 
     public JSONArrayWriter setDouble(double value) throws IOException {
-        return add(JSONTypes.NUMBER, JSONObjectWriter.es6JsonNumberSerialization(value));
+        return add(JSONTypes.NUMBER, NumberToJSON.serializeNumber(value));
     }
 
     public JSONArrayWriter setBoolean(boolean value) throws IOException {
@@ -108,22 +114,34 @@ public class JSONArrayWriter implements Serializable {
         return add(JSONTypes.NULL, "null");
     }
 
-    public JSONArrayWriter setDateTime(GregorianCalendar dateTime, boolean forceUtc) throws IOException {
-        return setString(ISODateTime.formatDateTime(dateTime, forceUtc));
+    public JSONArrayWriter setDateTime(GregorianCalendar dateTime, EnumSet<ISODateTime.DatePatterns> format) throws IOException {
+        return setString(ISODateTime.formatDateTime(dateTime, format));
     }
 
     public JSONArrayWriter setBinary(byte[] value) throws IOException {
         return setString(Base64URL.encode(value));
     }
 
+    JSONObjectWriter createWriteable() {
+        JSONObject dummy = new JSONObject();
+        dummy.properties.put(null, new JSONValue(JSONTypes.ARRAY, array));
+        return new JSONObjectWriter(dummy);
+        
+    }
+    public JSONArrayWriter setSignature (JSONSigner signer) throws IOException {
+        JSONObjectWriter signatureObject = setObject();
+        JSONObjectWriter.coreSign(signer, 
+                                  signatureObject,
+                                  signatureObject,
+                                  createWriteable());
+        return this;
+    }
+
     static public JSONArrayWriter createCoreCertificatePath(X509Certificate[] certificatePath) throws IOException {
         JSONArrayWriter arrayWriter = new JSONArrayWriter();
-        X509Certificate lastCertificate = null;
-        for (X509Certificate certificate : certificatePath) {
+        for (X509Certificate certificate : CertificateUtil.checkCertificatePath(certificatePath)) {
             try {
-                arrayWriter.setBinary(
-                        JSONSignatureDecoder.pathCheck(lastCertificate, 
-                                                       lastCertificate = certificate).getEncoded());
+                arrayWriter.setString(Base64URL.encode(certificate.getEncoded()));
             } catch (GeneralSecurityException e) {
                 throw new IOException(e);
             }
@@ -167,9 +185,7 @@ public class JSONArrayWriter implements Serializable {
     }
 
     public String serializeToString(JSONOutputFormats outputFormat) throws IOException {
-        JSONObject dummy = new JSONObject();
-        dummy.properties.put(null, new JSONValue(JSONTypes.ARRAY, array));
-        return new JSONObjectWriter(dummy).serializeToString(outputFormat);
+        return createWriteable().serializeToString(outputFormat);
     }
 
     public byte[] serializeToBytes(JSONOutputFormats outputFormat) throws IOException {

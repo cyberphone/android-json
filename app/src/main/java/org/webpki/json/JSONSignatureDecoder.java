@@ -1,5 +1,5 @@
 /*
- *  Copyright 2006-2016 WebPKI.org (http://webpki.org).
+ *  Copyright 2006-2018 WebPKI.org (http://webpki.org).
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -16,7 +16,6 @@
  */
 package org.webpki.json;
 
-import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.Serializable;
 
@@ -27,7 +26,6 @@ import java.security.KeyFactory;
 import java.security.PrivateKey;
 import java.security.PublicKey;
 
-import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
 
 import java.security.interfaces.RSAPublicKey;
@@ -39,7 +37,7 @@ import java.security.spec.RSAPrivateCrtKeySpec;
 import java.security.spec.RSAPublicKeySpec;
 
 import java.util.LinkedHashMap;
-import java.util.Vector;
+import java.util.LinkedHashSet;
 
 import org.webpki.crypto.AlgorithmPreferences;
 import org.webpki.crypto.SignatureAlgorithms;
@@ -49,157 +47,11 @@ import org.webpki.crypto.KeyAlgorithms;
 import org.webpki.crypto.SignatureWrapper;
 
 /**
- * Decoder for JCS signatures.
+ * Decoder for JSF signatures.
  */
 public class JSONSignatureDecoder implements Serializable {
 
     private static final long serialVersionUID = 1L;
-
-    // Arguments
-    public static final String EC_PUBLIC_KEY              = "EC";
-
-    public static final String RSA_PUBLIC_KEY             = "RSA";
-
-    public static final String SIGNATURE_VERSION_ID       = "http://xmlns.webpki.org/jcs/v1";
-
-    // JSON properties
-    public static final String ALGORITHM_JSON             = "algorithm";
-
-    public static final String CERTIFICATE_PATH_JSON      = "certificatePath";
-
-    public static final String CRV_JSON                   = "crv";          // JWK
-
-    public static final String E_JSON                     = "e";            // JWK
-
-    public static final String EXTENSIONS_JSON            = "extensions";
-
-    public static final String FORMAT_JSON                = "format";       // Remote key argument
-
-    public static final String ISSUER_JSON                = "issuer";
-
-    public static final String KEY_ID_JSON                = "keyId";
-
-    public static final String KTY_JSON                   = "kty";          // JWK
-
-    public static final String N_JSON                     = "n";            // JWK
-
-    public static final String PUBLIC_KEY_JSON            = "publicKey";
-
-    public static final String REMOTE_KEY_JSON            = "remoteKey";    // Remote key
-
-    public static final String SERIAL_NUMBER_JSON         = "serialNumber";
-
-    public static final String SIGNATURE_JSON             = "signature";
-
-    public static final String SIGNATURES_JSON            = "signatures";
-
-    public static final String SIGNER_CERTIFICATE_JSON    = "signerCertificate";
-
-    public static final String SUBJECT_JSON               = "subject";
-
-    public static final String URI_JSON                   = "uri";          // Remote key argument
-
-    public static final String VALUE_JSON                 = "value";
-
-    public static final String VERSION_JSON               = "version";
-
-    public static final String X_JSON                     = "x";            // JWK
-
-    public static final String Y_JSON                     = "y";            // JWK
-
-    public static abstract class Extension {
-        
-        protected abstract String getExtensionUri();
-        
-        protected abstract void decode(JSONObjectReader reader) throws IOException;
-    }
-
-    static class ExtensionEntry {
-        Class<? extends Extension> extensionClass;
-        boolean mandatory;
-    }
-
-    public static class ExtensionHolder {
-        
-        LinkedHashMap<String,ExtensionEntry> extensions = new LinkedHashMap<String,ExtensionEntry>();
-
-        public ExtensionHolder addExtension(Class<? extends Extension> extensionClass,
-                                            boolean mandatory) throws IOException {
-            try {
-                Extension extension = extensionClass.newInstance();
-                ExtensionEntry extensionEntry = new ExtensionEntry();
-                extensionEntry.extensionClass = extensionClass;
-                extensionEntry.mandatory = mandatory;
-                if ((extensions.put(extension.getExtensionUri(), extensionEntry)) != null) {
-                    throw new IOException("Duplicate extension: " + extension.getExtensionUri());
-                }
-            } catch (InstantiationException e) {
-                throw new IOException(e);
-            } catch (IllegalAccessException e) {
-                throw new IOException(e);
-            }
-            return this;
-        }
-    }
-
-    /**
-     * Parameter to Options
-     *
-     */
-    public enum KEY_ID_OPTIONS {FORBIDDEN, REQUIRED, OPTIONAL};
-
-    /**
-     * Signature decoding options.
-     * <p>This class holds options that are checked during signature decoding.</p>
-     * The following options are currently recognized:
-     * <ul>
-     * <li>Algorithm preference.  Default: JOSE</li>
-     * <li>Require public key info in line.  Default: true</li>
-     * <li>keyId option.  Default: FORBIDDEN</li>
-     * <li>Permitted extensions.  Default: none</li>
-     * </ul>
-     * In addition, the Options class is used for defining external readers for &quot;remoteKey&quot; support.
-     *
-     */
-    public static class Options {
-        
-        AlgorithmPreferences algorithmPreferences = AlgorithmPreferences.JOSE;
-        boolean requirePublicKeyInfo = true;
-        KEY_ID_OPTIONS keyIdOption = KEY_ID_OPTIONS.FORBIDDEN;
-        ExtensionHolder extensionHolder = new ExtensionHolder();
-        JSONRemoteKeys.Reader remoteKeyReader;
-
-        public Options setAlgorithmPreferences(AlgorithmPreferences algorithmPreferences) {
-            this.algorithmPreferences = algorithmPreferences;
-            return this;
-        }
-
-        public Options setRequirePublicKeyInfo(boolean flag) {
-            this.requirePublicKeyInfo = flag;
-            return this;
-        }
-
-        /**
-         * Define external &quot;remoteKey&quot; reader class.
-         * If set, the signature decoder assumes that there is no in-line public key or certificate information to process.   
-         * @param remoteKeyReader Interface
-         * @return this
-         */
-        public Options setRemoteKeyReader(JSONRemoteKeys.Reader remoteKeyReader) {
-            this.remoteKeyReader = remoteKeyReader;
-            return this;
-        }
-
-        public Options setKeyIdOption(KEY_ID_OPTIONS keyIdOption) {
-            this.keyIdOption = keyIdOption;
-            return this;
-        }
-
-        public Options setPermittedExtensions(ExtensionHolder extensionHolder) {
-            this.extensionHolder = extensionHolder;
-            return this;
-        }
-    }
 
     SignatureAlgorithms algorithm;
 
@@ -215,32 +67,19 @@ public class JSONSignatureDecoder implements Serializable {
 
     String keyId;
     
-    Options options;
+    JSONCryptoHelper.Options options;
     
-    LinkedHashMap<String,Extension> extensions = new LinkedHashMap<String,Extension>();
+    LinkedHashMap<String,JSONCryptoHelper.Extension> extensions = new LinkedHashMap<String,JSONCryptoHelper.Extension>();
 
-    JSONSignatureDecoder(JSONObjectReader rd,
-                         JSONObjectReader signature,
-                         Options options) throws IOException {
+    JSONSignatureDecoder(JSONObjectReader signedData,
+                         JSONObjectReader innerSignatureObject,
+                         JSONObjectReader outerSignatureObject,
+                         JSONCryptoHelper.Options options) throws IOException {
         this.options = options;
-        if (options.requirePublicKeyInfo && options.keyIdOption != KEY_ID_OPTIONS.FORBIDDEN) {
-            throw new IOException("Incompatible keyId and publicKey options - Choose one");
-        }
-        String version = signature.getStringConditional(VERSION_JSON, SIGNATURE_VERSION_ID);
-        if (!version.equals(SIGNATURE_VERSION_ID)) {
-            throw new IOException("Unknown \"" + SIGNATURE_JSON + "\" version: " + version);
-        }
-        algorithmString = signature.getString(ALGORITHM_JSON);
-        keyId = signature.getStringConditional(KEY_ID_JSON);
-        if (keyId == null) {
-            if (options.keyIdOption == KEY_ID_OPTIONS.REQUIRED) {
-                throw new IOException("Missing \"" + KEY_ID_JSON + "\"");
-            }
-        } else if (options.keyIdOption == KEY_ID_OPTIONS.FORBIDDEN) {
-            throw new IOException("Use of \"" + KEY_ID_JSON + "\" must be set in options");
-        }
+        algorithmString = innerSignatureObject.getString(JSONCryptoHelper.ALGORITHM_JSON);
+        keyId = options.getKeyId(innerSignatureObject);
         if (options.requirePublicKeyInfo) {
-            getPublicKeyInfo(signature);
+            getPublicKeyInfo(innerSignatureObject);
         } else {
             for (AsymSignatureAlgorithms alg : AsymSignatureAlgorithms.values()) {
                 if (algorithmString.equals(alg.getAlgorithmId(AlgorithmPreferences.JOSE_ACCEPT_PREFER)) ||
@@ -254,55 +93,68 @@ public class JSONSignatureDecoder implements Serializable {
                 algorithm = MACAlgorithms.getAlgorithmFromId(algorithmString, options.algorithmPreferences);
             }
         }
-        if (signature.hasProperty(EXTENSIONS_JSON)) {
-            JSONObjectReader extensionReader = signature.getObject(EXTENSIONS_JSON);
-            if (extensionReader.getProperties().length == 0) {
-                throw new IOException("Empty \"" + EXTENSIONS_JSON + "\" object not allowed");
-            }
-            for (String name : extensionReader.getProperties()) {
-                ExtensionEntry extensionEntry = options.extensionHolder.extensions.get(name);
-                if (extensionEntry == null) {
-                    throw new IOException("Unknown extension: " + name);
-                }
-                try {
-                    Extension extension = extensionEntry.extensionClass.newInstance();
-                    extension.decode(extensionReader);
-                    extensions.put(name, extension);
-                } catch (InstantiationException e) {
-                    throw new IOException (e);
-                } catch (IllegalAccessException e) {
-                    throw new IOException (e);
-                }
-            }
-        }
-        for (String name : options.extensionHolder.extensions.keySet()) {
-            if (!extensions.containsKey(name) && options.extensionHolder.extensions.get(name).mandatory) {
-                throw new IOException("Missing mandatory extension: " + name);
-            }
-        }
-        signatureValue = signature.getBinary(VALUE_JSON);
 
-        //////////////////////////////////////////////////////////////////////////
-        // Begin JCS normalization                                              //
-        //                                                                      //
-        // 1. Make a shallow copy of the signature object property list         //
-        LinkedHashMap<String, JSONValue> savedProperties =
-                new LinkedHashMap<String, JSONValue>(signature.root.properties);
-        //                                                                      //
-        // 2. Hide property for the serializer..                                //
-        signature.root.properties.remove(VALUE_JSON);                           //
-        //                                                                      //
-        // 3. Serialize ("JSON.stringify()")                                    //
-        normalizedData = rd.serializeToBytes(JSONOutputFormats.NORMALIZED);
-        //                                                                      //
-        // 4. Check for unread data                                             //
-        signature.checkForUnread();                                             //
-        //                                                                      //
-        // 5. Restore signature property list                                   //
-        signature.root.properties = savedProperties;
-        //                                                                      //
-        // End JCS normalization                                                //
-        //////////////////////////////////////////////////////////////////////////
+        options.getExtensions(innerSignatureObject, outerSignatureObject, extensions);
+
+        LinkedHashMap<String, JSONValue> saveExcluded = null;
+        JSONValue saveExcludeArray = null;
+
+        // Note: the following section will not execute for array signatures
+        if (options.exclusions == null) {
+            if (outerSignatureObject.hasProperty(JSONCryptoHelper.EXCLUDE_JSON)) {
+                throw new IOException("Use of \"" + JSONCryptoHelper.EXCLUDE_JSON +
+                                      "\" must be set in options");
+            }
+        } else {
+            saveExcluded = new LinkedHashMap<String, JSONValue>(signedData.root.properties);
+            LinkedHashSet<String> parsedExcludes = 
+                    checkExcluded(outerSignatureObject.getStringArray(JSONCryptoHelper.EXCLUDE_JSON));
+            for (String excluded : parsedExcludes.toArray(new String[0])) {
+                if (!options.exclusions.contains(excluded)) {
+                    throw new IOException("Unexpected \"" + JSONCryptoHelper.EXCLUDE_JSON + 
+                                          "\" property: " + excluded);
+                }
+                signedData.root.properties.remove(excluded);
+            }
+            for (String excluded : options.exclusions.toArray(new String[0])) {
+                if (!parsedExcludes.contains(excluded)) {
+                    throw new IOException("Missing \"" + JSONCryptoHelper.EXCLUDE_JSON +
+                                          "\" property: " + excluded);
+                }
+            }
+            // Hide the exclude property from the serializer...
+            saveExcludeArray = outerSignatureObject.root.properties.get(JSONCryptoHelper.EXCLUDE_JSON);
+            outerSignatureObject.root.properties.put(JSONCryptoHelper.EXCLUDE_JSON, null);
+        }
+
+        signatureValue = innerSignatureObject.getBinary(JSONCryptoHelper.VALUE_JSON);
+
+        //////////////////////////////////////////////////////////////////////////////////////
+        // Begin JSF core normalization                                                     //
+        //                                                                                  //
+        // 1. Make a shallow copy of the signature object                                   //
+        LinkedHashMap<String, JSONValue> savedProperties =                                  //
+                new LinkedHashMap<String, JSONValue>(innerSignatureObject.root.properties); //
+        //                                                                                  //
+        // 2. Hide the signature value property for the serializer...                       //
+        innerSignatureObject.root.properties.remove(JSONCryptoHelper.VALUE_JSON);           //
+        //                                                                                  //
+        // 3. Serialize ("JSON.stringify()")                                                //
+        normalizedData = signedData.serializeToBytes(JSONOutputFormats.CANONICALIZED);      //
+        //                                                                                  //
+        // 4. Restore the signature object                                                  //
+        innerSignatureObject.root.properties = savedProperties;                             //
+        //                                                                                  //
+        // End JCS core normalization                                                       //
+        //////////////////////////////////////////////////////////////////////////////////////
+
+        if (options.exclusions != null) {
+            signedData.root.properties = saveExcluded;
+            outerSignatureObject.root.properties.put(JSONCryptoHelper.EXCLUDE_JSON, saveExcludeArray);
+        }
+
+        // Check for unread (=forbidden) data                                            //
+        innerSignatureObject.checkForUnread();                                              //
 
         if (options.requirePublicKeyInfo) switch (getSignatureType()) {
             case X509_CERTIFICATE:
@@ -322,18 +174,9 @@ public class JSONSignatureDecoder implements Serializable {
     void getPublicKeyInfo(JSONObjectReader rd) throws IOException {
         algorithm = AsymSignatureAlgorithms.getAlgorithmFromId(algorithmString, 
                                                                options.algorithmPreferences);
-        if (options.remoteKeyReader != null) {
-            JSONObjectReader remoteKeyInfo = rd.getObject(REMOTE_KEY_JSON);
-            String url = remoteKeyInfo.getString(URI_JSON);
-            JSONRemoteKeys format = JSONRemoteKeys.getFormatFromId(remoteKeyInfo.getString(FORMAT_JSON));
-            if (format.certificatePath) {
-                certificatePath = options.remoteKeyReader.readCertificatePath(url, format);
-            } else {
-                publicKey = options.remoteKeyReader.readPublicKey(url, format);
-            }
-        } else if (rd.hasProperty(CERTIFICATE_PATH_JSON)) {
-            readCertificateData(rd);
-        } else if (rd.hasProperty(PUBLIC_KEY_JSON)) {
+        if (rd.hasProperty(JSONCryptoHelper.CERTIFICATE_PATH)) {
+            certificatePath = rd.getCertificatePath();
+        } else if (rd.hasProperty(JSONCryptoHelper.PUBLIC_KEY_JSON)) {
             publicKey = rd.getPublicKey(options.algorithmPreferences);
         } else {
             throw new IOException("Missing key information");
@@ -351,7 +194,7 @@ public class JSONSignatureDecoder implements Serializable {
     static BigInteger getCryptoBinary(JSONObjectReader rd, String property) throws IOException {
         byte[] cryptoBinary = rd.getBinary(property);
         if (cryptoBinary[0] == 0x00) {
-            throw new IOException("Public RSA key parameter \"" + property + "\" contains leading zeroes");
+            throw new IOException("RSA key parameter \"" + property + "\" contains leading zeroes");
         }
         return new BigInteger(1, cryptoBinary);
     }
@@ -360,77 +203,26 @@ public class JSONSignatureDecoder implements Serializable {
                                      AlgorithmPreferences algorithmPreferences) throws IOException {
         PublicKey publicKey = null;
         try {
-            String type = rd.getString(KTY_JSON);
-            if (type.equals(RSA_PUBLIC_KEY)) {
-                publicKey = KeyFactory.getInstance("RSA").generatePublic(new RSAPublicKeySpec(getCryptoBinary(rd, N_JSON),
-                        getCryptoBinary(rd, E_JSON)));
-            } else if (type.equals(EC_PUBLIC_KEY)) {
-                KeyAlgorithms ec = KeyAlgorithms.getKeyAlgorithmFromId(rd.getString(CRV_JSON), algorithmPreferences);
+            String type = rd.getString(JSONCryptoHelper.KTY_JSON);
+            if (type.equals(JSONCryptoHelper.RSA_PUBLIC_KEY)) {
+                publicKey = KeyFactory.getInstance("RSA").generatePublic(
+                        new RSAPublicKeySpec(getCryptoBinary(rd, JSONCryptoHelper.N_JSON),
+                                             getCryptoBinary(rd, JSONCryptoHelper.E_JSON)));
+            } else if (type.equals(JSONCryptoHelper.EC_PUBLIC_KEY)) {
+                KeyAlgorithms ec = 
+                        KeyAlgorithms.getKeyAlgorithmFromId(rd.getString(JSONCryptoHelper.CRV_JSON),
+                                                            algorithmPreferences);
                 if (!ec.isECKey()) {
-                    throw new IOException("\"" + CRV_JSON + "\" is not an EC type");
+                    throw new IOException("\"" + JSONCryptoHelper.CRV_JSON + "\" is not an EC type");
                 }
-                ECPoint w = new ECPoint(getCurvePoint(rd, X_JSON, ec), getCurvePoint(rd, Y_JSON, ec));
+                ECPoint w = new ECPoint(getCurvePoint(rd, JSONCryptoHelper.X_JSON, ec), getCurvePoint(rd, JSONCryptoHelper.Y_JSON, ec));
                 publicKey = KeyFactory.getInstance("EC").generatePublic(new ECPublicKeySpec(w, ec.getECParameterSpec()));
             } else {
-                throw new IOException("Unrecognized \"" + PUBLIC_KEY_JSON + "\": " + type);
+                throw new IOException("Unrecognized \"" + JSONCryptoHelper.KTY_JSON + "\": " + type);
             }
             return publicKey;
         } catch (GeneralSecurityException e) {
             throw new IOException(e);
-        }
-    }
-
-    static X509Certificate[] makeCertificatePath(Vector<byte[]> certificateBlobs) throws IOException {
-        X509Certificate lastCertificate = null;
-        Vector<X509Certificate> certificates = new Vector<X509Certificate>();
-        for (byte[] certificateBlob : certificateBlobs) {
-            try {
-                CertificateFactory cf = CertificateFactory.getInstance("X.509");
-                X509Certificate certificate = (X509Certificate) cf.generateCertificate(new ByteArrayInputStream(certificateBlob));
-                certificates.add(pathCheck(lastCertificate, lastCertificate = certificate));
-            } catch (GeneralSecurityException e) {
-                throw new IOException(e);
-            }
-        }
-        return certificates.toArray(new X509Certificate[0]);
-    }
-
-    static X509Certificate[] getCertificatePath(JSONObjectReader rd) throws IOException {
-        return makeCertificatePath(rd.getBinaryArray(CERTIFICATE_PATH_JSON));
-    }
-
-    void readCertificateData(JSONObjectReader rd) throws IOException {
-        certificatePath = getCertificatePath(rd);
-        if (rd.hasProperty(SIGNER_CERTIFICATE_JSON)) {
-            rd = rd.getObject(SIGNER_CERTIFICATE_JSON);
-            String issuer = rd.getString(ISSUER_JSON);
-            BigInteger serialNumber = rd.getBigInteger(SERIAL_NUMBER_JSON);
-            String subject = rd.getString(SUBJECT_JSON);
-            X509Certificate signatureCertificate = certificatePath[0];
-            if (!signatureCertificate.getIssuerX500Principal().getName().equals(issuer) ||
-                !signatureCertificate.getSerialNumber().equals(serialNumber) ||
-                !signatureCertificate.getSubjectX500Principal().getName().equals(subject)) {
-                throw new IOException("\"" + SIGNER_CERTIFICATE_JSON + "\" doesn't match actual certificate");
-            }
-        }
-    }
-
-    void checkVerification(boolean success) throws IOException {
-        if (!success) {
-            String key;
-            switch (getSignatureType()) {
-                case X509_CERTIFICATE:
-                    key = certificatePath[0].getPublicKey().toString();
-                    break;
-
-                case ASYMMETRIC_KEY:
-                    key = publicKey.toString();
-                    break;
-
-                default:
-                    key = getKeyId();
-            }
-            throw new IOException("Bad signature for key: " + key);
         }
     }
 
@@ -439,15 +231,17 @@ public class JSONSignatureDecoder implements Serializable {
             throw new IOException("\"" + algorithmString + "\" doesn't match key type: " + publicKey.getAlgorithm());
         }
         try {
-            checkVerification(new SignatureWrapper((AsymSignatureAlgorithms) algorithm, publicKey)
-                .update(normalizedData)
-                .verify(signatureValue));
+            if (!new SignatureWrapper((AsymSignatureAlgorithms) algorithm, publicKey)
+                         .update(normalizedData)
+                         .verify(signatureValue)) {
+                throw new IOException("Bad signature for key: " + publicKey.toString());
+            }
         } catch (GeneralSecurityException e) {
             throw new IOException(e);
         }
     }
 
-    public byte[] getValue() {
+    public byte[] getSignatureValue() {
         return signatureValue;
     }
 
@@ -455,7 +249,7 @@ public class JSONSignatureDecoder implements Serializable {
         return algorithm;
     }
 
-    public Extension getExtension(String name) {
+    public JSONCryptoHelper.Extension getExtension(String name) {
         return extensions.get(name);
     }
 
@@ -491,7 +285,7 @@ public class JSONSignatureDecoder implements Serializable {
     }
 
     /**
-     * Simplified verify that only checks that there are no "keyId" or "extensions", and that the signature type matches.
+     * Simplified verify that only checks that there are no "kid" or "crit", and that the signature type matches.
      * Note that asymmetric key signatures are always checked for technical correctness unless
      * you have specified false for requirePublicKeyInfo.
      *
@@ -511,22 +305,6 @@ public class JSONSignatureDecoder implements Serializable {
     public void verify(JSONVerifier verifier) throws IOException {
         checkRequest(verifier.signatureType);
         verifier.verify(this);
-    }
-
-    static X509Certificate pathCheck(X509Certificate child, X509Certificate parent) throws IOException {
-        if (child != null) {
-            String issuer = child.getIssuerX500Principal().getName();
-            String subject = parent.getSubjectX500Principal().getName();
-            if (!issuer.equals(subject)) {
-                throw new IOException("Path issuer order error, '" + issuer + "' versus '" + subject + "'");
-            }
-            try {
-                child.verify(parent.getPublicKey());
-            } catch (GeneralSecurityException e) {
-                throw new IOException(e);
-            }
-        }
-        return parent;
     }
 
     static PrivateKey decodePrivateKey(JSONObjectReader rd, PublicKey publicKey) throws IOException {
@@ -549,5 +327,18 @@ public class JSONSignatureDecoder implements Serializable {
         } catch (GeneralSecurityException e) {
             throw new IOException(e);
         }
+    }
+
+    static LinkedHashSet<String> checkExcluded(String[] excluded) throws IOException {
+        if (excluded.length == 0) {
+            throw new IOException("Empty \"" + JSONCryptoHelper.EXCLUDE_JSON + "\" array not allowed");
+        }
+        LinkedHashSet<String> ex = new LinkedHashSet<String>();
+        for (String property : excluded) {
+            if (!ex.add(property)) {
+                throw new IOException("Duplicate \"" + JSONCryptoHelper.EXCLUDE_JSON + "\" property: " + property);
+            }
+        }
+        return ex;
     }
 }

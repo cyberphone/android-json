@@ -1,5 +1,5 @@
 /*
- *  Copyright 2006-2016 WebPKI.org (http://webpki.org).
+ *  Copyright 2006-2018 WebPKI.org (http://webpki.org).
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -14,12 +14,12 @@
  *  limitations under the License.
  *
  */
-package org.webpki.json.encryption;
+package org.webpki.json;
 
 import java.io.IOException;
 
 /**
- * JEF (JSON Encryption Format) data encryption algorithms.
+ * JWE content encryption algorithms.
  */
 public enum DataEncryptionAlgorithms {
 
@@ -30,26 +30,26 @@ public enum DataEncryptionAlgorithms {
     JOSE_A256CBC_HS512_ALG_ID ("A256CBC-HS512", 64, EncryptionCore.AES_CBC_IV_LENGTH,
                                32,                                     "HMACSHA512", false),
     JOSE_A128GCM_ALG_ID       ("A128GCM",       16, EncryptionCore.AES_GCM_IV_LENGTH,
-                               EncryptionCore.AES_GCM_TAG_LENGTH, null,         true),
+                               EncryptionCore.AES_GCM_TAG_LENGTH,      null,         true),
     JOSE_A192GCM_ALG_ID       ("A192GCM",       24, EncryptionCore.AES_GCM_IV_LENGTH,
-                               EncryptionCore.AES_GCM_TAG_LENGTH, null,         true),
+                               EncryptionCore.AES_GCM_TAG_LENGTH,      null,         true),
     JOSE_A256GCM_ALG_ID       ("A256GCM",       32, EncryptionCore.AES_GCM_IV_LENGTH,
-                               EncryptionCore.AES_GCM_TAG_LENGTH, null,         true);
+                               EncryptionCore.AES_GCM_TAG_LENGTH,      null,         true);
 
-    String JoseName;
+    String joseName;
     int keyLength;
     int ivLength;
     int tagLength;
     String jceNameOfTagHmac;
     boolean gcm;
 
-    DataEncryptionAlgorithms(String JoseName,
-                             int keyLength,
-                             int ivLength,
-                             int tagLength,
-                             String jceNameOfTagHmac, 
-                             boolean gcm) {
-        this.JoseName = JoseName;
+    DataEncryptionAlgorithms(String joseName,
+                                int keyLength,
+                                int ivLength,
+                                int tagLength,
+                                String jceNameOfTagHmac, 
+                                boolean gcm) {
+        this.joseName = joseName;
         this.keyLength = keyLength;
         this.ivLength = ivLength;
         this.tagLength = tagLength;
@@ -59,7 +59,7 @@ public enum DataEncryptionAlgorithms {
 
     @Override
     public String toString() {
-        return JoseName;
+        return joseName;
     }
 
     public int getKeyLength() {
@@ -76,10 +76,10 @@ public enum DataEncryptionAlgorithms {
     
     public static DataEncryptionAlgorithms getAlgorithmFromId(String algorithmId) throws IOException {
         for (DataEncryptionAlgorithms algorithm : DataEncryptionAlgorithms.values()) {
-            if (algorithmId.equals(algorithm.JoseName)) {
+            if (algorithmId.equals(algorithm.joseName)) {
                 return algorithm;
             }
         }
-        throw new IOException("No such algorithm: " + algorithmId);
+        throw new IOException("Unexpected argument to \"" + JSONCryptoHelper.ALGORITHM_JSON + "\": " + algorithmId);
     }
 }

@@ -1,5 +1,5 @@
 /*
- *  Copyright 2006-2016 WebPKI.org (http://webpki.org).
+ *  Copyright 2006-2018 WebPKI.org (http://webpki.org).
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -14,31 +14,17 @@
  *  limitations under the License.
  *
  */
-package org.webpki.json.encryption;
+package org.webpki.crypto;
 
-/**
- * Return object for symmetric key encryptions.
- */
-public class SymmetricEncryptionResult {
-    private byte[] iv;
-    byte[] tag;
-    byte[] cipherText;
+import java.security.SecureRandom;
 
-    SymmetricEncryptionResult(byte[] iv, byte[] tag, byte[] cipherText) {
-        this.iv = iv;
-        this.tag = tag;
-        this.cipherText = cipherText;
-    }
+public class CryptoRandom {
 
-    public byte[] getTag() {
-        return tag;
-    }
+    private CryptoRandom() { }
 
-    public byte[] getIv() {
-        return iv;
-    }
-
-    public byte[] getCipherText() {
-        return cipherText;
+    public static byte[] generateRandom(int length) {
+        byte[] random = new byte[length];
+        new SecureRandom().nextBytes(random);
+        return random;
     }
 }

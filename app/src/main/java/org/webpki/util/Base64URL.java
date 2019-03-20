@@ -1,5 +1,5 @@
 /*
- *  Copyright 2006-2016 WebPKI.org (http://webpki.org).
+ *  Copyright 2006-2018 WebPKI.org (http://webpki.org).
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -18,7 +18,7 @@ package org.webpki.util;
 
 import java.io.IOException;
 
-import java.security.SecureRandom;
+import org.webpki.crypto.CryptoRandom;
 
 /**
  * Encodes/decodes base64URL data.
@@ -159,9 +159,8 @@ public class Base64URL {
      * @return Encoded nonce
      */
     public static String generateURLFriendlyRandom(int length) {
-        byte[] random = new byte[length];
-        new SecureRandom().nextBytes(random);
-        StringBuffer buffer = new StringBuffer();
+        byte[] random = CryptoRandom.generateRandom(length);
+        StringBuilder buffer = new StringBuilder();
         for (int i = 0; i < length; i++) {
             buffer.append(BASE64URL[random[i] & 0x3F]);
         }
