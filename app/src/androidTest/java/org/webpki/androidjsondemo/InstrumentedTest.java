@@ -8,8 +8,6 @@ import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
-import org.spongycastle.jce.provider.BouncyCastleProvider;
-
 import org.webpki.crypto.AsymSignatureAlgorithms;
 import org.webpki.crypto.MACAlgorithms;
 
@@ -27,10 +25,6 @@ import org.webpki.json.DataEncryptionAlgorithms;
 import org.webpki.json.KeyEncryptionAlgorithms;
 
 import org.webpki.util.ArrayUtil;
-import org.webpki.util.Base64URL;
-
-import java.security.KeyPair;
-import java.security.Security;
 
 import java.util.Vector;
 
@@ -43,8 +37,6 @@ import static org.junit.Assert.*;
  */
 @RunWith(AndroidJUnit4.class)
 public class InstrumentedTest {
-
-    static final String JEF_SYM_KEY     = "ooQSGRnwUQYbvHjCMi0zPNARka2BuksLM7UK1RHiQwI";
 
     Vector<JSONDecryptionDecoder.DecryptionKeyHolder> keys;
 
@@ -132,8 +124,9 @@ public class InstrumentedTest {
         assertTrue("Decrypt sym",
                    ArrayUtil.compare(RawReader.dataToBeEncrypted,
                                      RawReader.getJSONResource(R.raw.a128cbc_hs256_json)
-                                         .getEncryptionObject(new JSONCryptoHelper.Options())
-                                             .getDecryptedData(Base64URL.decode(JEF_SYM_KEY))));
+                                         .getEncryptionObject(new JSONCryptoHelper.Options()
+                                            .setKeyIdOption(JSONCryptoHelper.KEY_ID_OPTIONS.OPTIONAL))
+                                             .getDecryptedData(RawReader.secretKey)));
     }
 
     JSONObjectWriter getData() throws Exception {
@@ -191,17 +184,17 @@ public class InstrumentedTest {
                 .equals(getData().serializeToString(JSONOutputFormats.CANONICALIZED)));
 
         signature =
-                getData().setSignature(new JSONSymKeySigner(Base64URL.decode(JEF_SYM_KEY),
+                getData().setSignature(new JSONSymKeySigner(RawReader.secretKey,
                                                             MACAlgorithms.HMAC_SHA256)).toString();
         JSONParser.parse(signature)
                 .getSignature(new JSONCryptoHelper.Options()
                         .setRequirePublicKeyInfo(false))
-                .verify(new JSONSymKeyVerifier(Base64URL.decode(JEF_SYM_KEY)));
+                .verify(new JSONSymKeyVerifier(RawReader.secretKey));
         try {
             JSONParser.parse(signature.replace("now", "then"))
                     .getSignature(new JSONCryptoHelper.Options()
                             .setRequirePublicKeyInfo(false))
-                    .verify(new JSONSymKeyVerifier(Base64URL.decode(JEF_SYM_KEY)));
+                    .verify(new JSONSymKeyVerifier(RawReader.secretKey));
             fail("verify");
         } catch (Exception e) {
         }

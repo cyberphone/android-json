@@ -25,8 +25,6 @@ import android.webkit.JavascriptInterface;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 
-import org.spongycastle.jce.provider.BouncyCastleProvider;
-
 import org.webpki.crypto.MACAlgorithms;
 import org.webpki.crypto.AlgorithmPreferences;
 
@@ -49,32 +47,19 @@ import org.webpki.json.KeyEncryptionAlgorithms;
 import org.webpki.util.Base64URL;
 
 import java.security.PublicKey;
-import java.security.Security;
 import java.security.KeyPair;
 
 import java.io.ByteArrayOutputStream;
 import java.io.PrintWriter;
 
 /**
- * This is a demonstration and test application for the WebPKI JSON, JCS and JEF components.
+ * This is a demonstration and test application for the WebPKI JSON, JSF and JEF components.
  */
 public class MainActivity extends AppCompatActivity {
 
     enum SIG_TYPES {EC_KEY, RSA_KEY, PKI, SYMMETRIC_KEY}
 
     enum ENC_TYPES {EC_KEY, RSA_KEY, SYMMETRIC_KEY}
-
-    static final byte[] SYMMETRIC_KEY = {
-            (byte) 0xF4, (byte) 0xC7, (byte) 0x4F, (byte) 0x33,
-            (byte) 0x98, (byte) 0xC4, (byte) 0x9C, (byte) 0xF4,
-            (byte) 0x6D, (byte) 0x93, (byte) 0xEC, (byte) 0x98,
-            (byte) 0x18, (byte) 0x83, (byte) 0x26, (byte) 0x61,
-            (byte) 0xA4, (byte) 0x0B, (byte) 0xAE, (byte) 0x4D,
-            (byte) 0x20, (byte) 0x4D, (byte) 0x75, (byte) 0x50,
-            (byte) 0x36, (byte) 0x14, (byte) 0x10, (byte) 0x20,
-            (byte) 0x74, (byte) 0x34, (byte) 0x69, (byte) 0x09 };
-
-    static final String MY_KEY = "mykey";
 
     static final String HTML_HEADER =
         "<html><head><style type='text/css'>" +
@@ -100,7 +85,7 @@ public class MainActivity extends AppCompatActivity {
             public void run() {
                 webView.loadUrl("about:blank");
                 try {
-                    String html = Base64.encodeToString(new StringBuffer(HTML_HEADER)
+                    String html = Base64.encodeToString(new StringBuilder(HTML_HEADER)
                                     .append(javaScript)
                                     .append(HTML_BODY)
                                     .append(header)
@@ -115,7 +100,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     String htmlIze(String s) {
-        StringBuffer res = new StringBuffer();
+        StringBuilder res = new StringBuilder();
         for (char c : s.toCharArray()) {
             if (c == '\n') {
                 res.append("&#10;");
@@ -156,7 +141,6 @@ public class MainActivity extends AppCompatActivity {
         webSettings.setJavaScriptEnabled(true);
         webView.addJavascriptInterface (this, "WebPKI");
         homeScreen();
-        Security.insertProviderAt(new BouncyCastleProvider(), 1);
         String version = "?";
         try {
             new RawReader(getApplicationContext());
@@ -166,7 +150,7 @@ public class MainActivity extends AppCompatActivity {
         setTitle("JSON, JSF and JEF Demo V" + version);
      }
 
-    void addCommandButton(StringBuffer buffer, String button, String executor) {
+    void addCommandButton(StringBuilder buffer, String button, String executor) {
         buffer.append("<div style='width:15em' onclick='WebPKI.")
                 .append(executor)
                 .append("'>")
@@ -180,16 +164,16 @@ public class MainActivity extends AppCompatActivity {
 
     @JavascriptInterface
     public void homeScreen() {
-        StringBuffer s = new StringBuffer();
+        StringBuilder s = new StringBuilder();
         addCommandButton(s, "Sign JSON Data", "signData()");
-        addCommandButton(s, "Verify JSON (JCS) Signature", "verifySignature()");
+        addCommandButton(s, "Verify JSF Signature", "verifySignature()");
         addCommandButton(s, "Encrypt Arbitrary Data", "encryptData()");
         addCommandButton(s, "Decrypt JEF Encoded Data", "decryptData()");
         loadHtml("", "JSON Signatures and Encryption", s.toString());
     }
 
      void verifySignature(String jsonData) {
-        loadHtml("", "Verify JSON (JCS) Signature",
+        loadHtml("", "Verify JSON (JSF) Signature",
                  "<textarea id='jsonData' style='width:100%;height:60%;word-break:break-all'>" +
                  htmlIze(jsonData) +
                  "</textarea>" +
@@ -197,23 +181,9 @@ public class MainActivity extends AppCompatActivity {
     }
 
     @JavascriptInterface
-    public void verifySignature() {
+    public void verifySignature() throws Exception {
         // Show a pre-defined signed object as default
-        verifySignature("{\n" +
-            "  \"now\": \"2017-04-16T11:23:06Z\",\n" +
-            "  \"escapeMe\": \"\\u20ac$\\u000F\\u000aA'\\u0042\\u0022\\u005c\\\\\\\"\\/\",\n" +
-            "  \"numbers\": [1e+30,4.5,6],\n" +
-            "  \"signature\": {\n" +
-            "    \"algorithm\": \"ES256\",\n" +
-            "    \"publicKey\": {\n" +
-            "      \"kty\": \"EC\",\n" +
-            "      \"crv\": \"P-256\",\n" +
-            "      \"x\": \"o4UjRyckZkIuVPq-1pDZ7NA-m9Z9YEMm4JQr8l4CANk\",\n" +
-            "      \"y\": \"EJIlckodmvDfuCIqYapf7hxdTfH__M5Bc3VTjxUDA28\"\n" +
-            "    },\n" +
-            "    \"value\": \"UuxFcJx3G5CZDwOLqViKty8KF4ABNBdPXZEDDeMRPGW9wHUHvP7Db0t30cJv4wl8FKaSNASLJ_XBKv0x4LPfhA\"\n" +
-            "  }\n" +
-            "}");
+        verifySignature(RawReader.getStringResource(R.raw.json_signature));
     }
 
     @JavascriptInterface
@@ -241,8 +211,8 @@ public class MainActivity extends AppCompatActivity {
                     key = signature.getCertificatePath()[0].toString();
                     break;
                 default:
-                    signature.verify(new JSONSymKeyVerifier(SYMMETRIC_KEY));
-                    key = Base64URL.encode(SYMMETRIC_KEY);
+                    signature.verify(new JSONSymKeyVerifier(RawReader.secretKey));
+                    key = Base64URL.encode(RawReader.secretKey);
             }
             loadHtml("",
                     "Valid Signature!",
@@ -255,7 +225,7 @@ public class MainActivity extends AppCompatActivity {
 
     @JavascriptInterface
     public void signData() {
-        StringBuffer choices = new StringBuffer();
+        StringBuilder choices = new StringBuilder();
         for (SIG_TYPES sigType : SIG_TYPES.values()) {
             choices.append("<tr><td><input type='radio' name='keyType' value='")
                    .append(sigType.toString())
@@ -266,11 +236,11 @@ public class MainActivity extends AppCompatActivity {
         loadHtml("function getRadio() {\n" +
                         "  return document.querySelector('input[name = \"keyType\"]:checked').value;\n" +
                         "}",
-                "Sign JSON Data using JCS",
+                "Sign JSON Data using JSF",
                 "<textarea id='jsonData' style='width:100%;height:40%;word-break:break-all'>" +
                 htmlIze(
                         "{\n" +
-                        "  \"now\": \"2017-04-16T11:23:06Z\",\n" +
+                        "  \"timeStamp\": \"2019-03-16T11:23:06Z\",\n" +
                         "  \"escapeMe\": \"\\u20ac$\\u000F\\u000aA'\\u0042\\u0022\\u005c\\\\\\\"\\/\",\n" +
                         "  \"numbers\": [1e+30,4.5,6]\n" +
                         "}") +
@@ -300,8 +270,8 @@ public class MainActivity extends AppCompatActivity {
                             null));
                     break;
                 default:
-                    writer.setSignature(new JSONSymKeySigner(SYMMETRIC_KEY,
-                                                             MACAlgorithms.HMAC_SHA256).setKeyId(MY_KEY));
+                    writer.setSignature(new JSONSymKeySigner(RawReader.secretKey,
+                                                             MACAlgorithms.HMAC_SHA256).setKeyId(RawReader.secretKeyId));
             }
             verifySignature(writer.toString());
         } catch (Exception e) {
@@ -311,7 +281,7 @@ public class MainActivity extends AppCompatActivity {
 
     @JavascriptInterface
     public void encryptData() {
-        StringBuffer choices = new StringBuffer();
+        StringBuilder choices = new StringBuilder();
         for (ENC_TYPES encType : ENC_TYPES.values()) {
             choices.append("<tr><td><input type='radio' name='keyType' value='")
                     .append(encType.toString())
@@ -356,7 +326,7 @@ public class MainActivity extends AppCompatActivity {
                 default:
                     writer = JSONObjectWriter.createEncryptionObject(unencryptedData,
                                                                      DataEncryptionAlgorithms.JOSE_A128CBC_HS256_ALG_ID,
-                                                                     new JSONSymKeyEncrypter(SYMMETRIC_KEY).setKeyId(MY_KEY));
+                                                                     new JSONSymKeyEncrypter(RawReader.secretKey).setKeyId(RawReader.secretKeyId));
             }
             decryptData(writer.toString());
         } catch (Exception e) {
@@ -373,24 +343,21 @@ public class MainActivity extends AppCompatActivity {
     }
 
     @JavascriptInterface
-    public void decryptData() {
+    public void decryptData() throws Exception {
         // Show a pre-defined encrypted object as default
-        decryptData("{\n" +
-            "  \"algorithm\": \"A128CBC-HS256\",\n" +
-            "  \"keyId\": \"mykey\",\n" +
-            "  \"iv\": \"NcKwnGyZhtjKlM0lsg4eVQ\",\n" +
-            "  \"tag\": \"zR7O4N9M0y-LTUpcYL9XBw\",\n" +
-            "  \"cipherText\": \"Xm2MN7Z5AL1ce7uEmHDrFqs7wPHHTvC1mmUnRsEDfws\"\n" +
-            "}");
+        decryptData(RawReader.getStringResource(R.raw.a128cbc_hs256_json));
     }
 
     @JavascriptInterface
     public void doDecrypt(String jsonEncryptionObject) {
         try {
-            JSONDecryptionDecoder encryptionObject = JSONParser.parse(jsonEncryptionObject).getEncryptionObject(new JSONCryptoHelper.Options());
+            JSONDecryptionDecoder encryptionObject =
+                    JSONParser.parse(jsonEncryptionObject)
+                            .getEncryptionObject(new JSONCryptoHelper.Options()
+                                    .setKeyIdOption(JSONCryptoHelper.KEY_ID_OPTIONS.OPTIONAL));
             String decryptedData = null;
             if (encryptionObject.isSharedSecret()) {
-                decryptedData = new String(encryptionObject.getDecryptedData(SYMMETRIC_KEY),"UTF-8");
+                decryptedData = new String(encryptionObject.getDecryptedData(RawReader.secretKey),"UTF-8");
             } else {
                 KeyPair keyPair = encryptionObject.getKeyEncryptionAlgorithm().isRsa() ?
                                                                   RawReader.rsaKeyPair : RawReader.ecKeyPair;
