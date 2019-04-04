@@ -1,8 +1,13 @@
 package org.webpki.androidjsondemo;
 
-import android.content.Context;
+import android.security.keystore.KeyGenParameterSpec;
+import android.security.keystore.KeyProperties;
+
+import android.security.keystore.KeyProtection;
 import android.support.test.InstrumentationRegistry;
 import android.support.test.runner.AndroidJUnit4;
+
+import android.util.Log;
 
 import org.junit.BeforeClass;
 import org.junit.Test;
@@ -12,6 +17,7 @@ import org.webpki.crypto.AsymSignatureAlgorithms;
 import org.webpki.crypto.MACAlgorithms;
 
 import org.webpki.json.JSONAsymKeySigner;
+import org.webpki.json.JSONAsymKeyVerifier;
 import org.webpki.json.JSONDecryptionDecoder;
 import org.webpki.json.JSONCryptoHelper;
 import org.webpki.json.JSONOutputFormats;
@@ -22,11 +28,23 @@ import org.webpki.json.JSONParser;
 import org.webpki.json.JSONSymKeyVerifier;
 import org.webpki.json.JSONAsymKeyEncrypter;
 import org.webpki.json.DataEncryptionAlgorithms;
+import org.webpki.json.JSONX509Signer;
 import org.webpki.json.KeyEncryptionAlgorithms;
 
 import org.webpki.util.ArrayUtil;
 
+import java.security.KeyPair;
+import java.security.KeyPairGenerator;
+import java.security.KeyStore;
+import java.security.PrivateKey;
+
+import java.security.cert.Certificate;
+import java.security.cert.X509Certificate;
+
+import java.util.Date;
 import java.util.Vector;
+
+import javax.security.auth.x500.X500Principal;
 
 import static org.junit.Assert.*;
 
@@ -198,6 +216,105 @@ public class InstrumentedTest {
             fail("verify");
         } catch (Exception e) {
         }
+    }
+
+    X509Certificate[] convert(Certificate[] certificates) {
+        X509Certificate[] x509Certificates = new X509Certificate[certificates.length];
+        int q = 0;
+        for (Certificate certificate : certificates) {
+            x509Certificates[q++] = (X509Certificate)certificate;
+        }
+        return x509Certificates;
+    }
+
+    static String ANDROID_KEYSTORE = "AndroidKeyStore";
+
+    static String KEY_1 = "key-1";
+    static String KEY_2 = "key-2";
+
+    @Test
+    public void androidKeystore() throws Exception {
+        KeyPairGenerator kpg = KeyPairGenerator.getInstance(
+                KeyProperties.KEY_ALGORITHM_RSA, ANDROID_KEYSTORE);
+        kpg.initialize(new KeyGenParameterSpec.Builder(
+                KEY_1,
+                KeyProperties.PURPOSE_SIGN | KeyProperties.PURPOSE_VERIFY)
+                .setDigests(KeyProperties.DIGEST_SHA256, KeyProperties.DIGEST_SHA512)
+                .setCertificateNotBefore(new Date(System.currentTimeMillis() - 600000L))
+                .setCertificateSubject(new X500Principal("CN=Android, SerialNumber=5678"))
+                .setSignaturePaddings(KeyProperties.SIGNATURE_PADDING_RSA_PKCS1)
+                .setKeySize(2048)
+                .build());
+
+        KeyPair keyPair = kpg.generateKeyPair();
+
+        KeyStore keyStore = KeyStore.getInstance(ANDROID_KEYSTORE);
+        keyStore.load(null);
+
+        Log.i("CERT", keyStore.getCertificate(KEY_1).toString());
+
+        JSONObjectWriter signedData =
+            new JSONObjectWriter(RawReader.getJSONResource(R.raw.json_data)).setSignature(
+                new JSONAsymKeySigner(keyPair.getPrivate(), keyPair.getPublic(), null));
+        Log.i("SIGN", signedData.toString());
+        JSONObjectReader reader =
+                JSONParser.parse(signedData.serializeToBytes(JSONOutputFormats.PRETTY_PRINT));
+        reader.getSignature(new JSONCryptoHelper.Options())
+                .verify(new JSONAsymKeyVerifier(keyPair.getPublic()));
+
+        kpg = KeyPairGenerator.getInstance(
+                KeyProperties.KEY_ALGORITHM_EC, ANDROID_KEYSTORE);
+
+        kpg.initialize(new KeyGenParameterSpec.Builder(
+                KEY_2,
+                KeyProperties.PURPOSE_SIGN | KeyProperties.PURPOSE_VERIFY)
+                .setDigests(KeyProperties.DIGEST_SHA256, KeyProperties.DIGEST_SHA512)
+                .setCertificateNotBefore(new Date(System.currentTimeMillis() - 600000L))
+                .setCertificateSubject(new X500Principal("CN=Android, SerialNumber=5678"))
+                .setKeySize(256)
+                .build());
+
+        keyPair = kpg.generateKeyPair();
+
+        keyStore = KeyStore.getInstance(ANDROID_KEYSTORE);
+        keyStore.load(null);
+
+        Log.i("CERT", keyStore.getCertificate(KEY_2).toString());
+
+        signedData =
+                new JSONObjectWriter(RawReader.getJSONResource(R.raw.json_data)).setSignature(
+                        new JSONAsymKeySigner(keyPair.getPrivate(), keyPair.getPublic(), null));
+        Log.i("SIGN", signedData.toString());
+        reader =
+                JSONParser.parse(signedData.serializeToBytes(JSONOutputFormats.PRETTY_PRINT));
+        reader.getSignature(new JSONCryptoHelper.Options())
+                .verify(new JSONAsymKeyVerifier(keyPair.getPublic()));
+
+        signedData =
+                new JSONObjectWriter(RawReader.getJSONResource(R.raw.json_data)).setSignature(
+                        new JSONAsymKeySigner(keyPair.getPrivate(), keyPair.getPublic(), null)
+                .setOutputPublicKeyInfo(false));
+        Log.i("SIGN", signedData.toString());
+        reader =
+                JSONParser.parse(signedData.serializeToBytes(JSONOutputFormats.PRETTY_PRINT));
+        reader.getSignature(new JSONCryptoHelper.Options().setRequirePublicKeyInfo(false))
+                .verify(new JSONAsymKeyVerifier(keyPair.getPublic()));
+
+        keyStore.setEntry(
+                KEY_2,
+                new KeyStore.PrivateKeyEntry(RawReader.ecKeyPair.getPrivate(), RawReader.ecCertPath),
+                new KeyProtection.Builder(KeyProperties.PURPOSE_SIGN)
+                        .setDigests(KeyProperties.DIGEST_SHA256, KeyProperties.DIGEST_SHA512)
+                        .build());
+        signedData =
+                new JSONObjectWriter(RawReader.getJSONResource(R.raw.json_data)).setSignature(
+                        new JSONX509Signer((PrivateKey)keyStore.getKey(KEY_2, null),
+                                           convert(keyStore.getCertificateChain(KEY_2)),
+                                           null));
+        Log.i("CERTSIGN", signedData.toString());
+        reader =
+                JSONParser.parse(signedData.serializeToBytes(JSONOutputFormats.PRETTY_PRINT));
+        reader.getSignature(new JSONCryptoHelper.Options());
     }
 
     @Test
