@@ -321,6 +321,27 @@ public class InstrumentedTest {
     }
 
     @Test
+    public void attestationPlay() throws Exception {
+        KeyPairGenerator kpg = KeyPairGenerator.getInstance(
+                KeyProperties.KEY_ALGORITHM_EC, ANDROID_KEYSTORE);
+        kpg.initialize(new KeyGenParameterSpec.Builder(
+                KEY_1, KeyProperties.PURPOSE_SIGN)
+                .setAlgorithmParameterSpec(new ECGenParameterSpec("secp256r1"))
+                .setDigests(KeyProperties.DIGEST_SHA256, KeyProperties.DIGEST_SHA512)
+                .setAttestationChallenge("hello world".getBytes("utf-8"))
+                .build());
+
+        KeyPair keyPair = kpg.generateKeyPair();
+
+        KeyStore keyStore = KeyStore.getInstance(ANDROID_KEYSTORE);
+        keyStore.load(null);
+
+        for (Certificate certificate : keyStore.getCertificateChain(KEY_1)) {
+            Log.i("ATT", certificate.toString());
+        }
+    }
+
+    @Test
     public void useAppContext() throws Exception {
         assertEquals("org.webpki.androidjsondemo", RawReader.appContext.getPackageName());
     }
