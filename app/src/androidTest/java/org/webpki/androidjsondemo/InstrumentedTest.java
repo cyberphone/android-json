@@ -41,6 +41,9 @@ import java.security.PrivateKey;
 import java.security.cert.Certificate;
 import java.security.cert.X509Certificate;
 
+import java.security.spec.ECGenParameterSpec;
+import java.security.spec.RSAKeyGenParameterSpec;
+
 import java.util.Date;
 import java.util.Vector;
 
@@ -239,11 +242,11 @@ public class InstrumentedTest {
         kpg.initialize(new KeyGenParameterSpec.Builder(
                 KEY_1,
                 KeyProperties.PURPOSE_SIGN | KeyProperties.PURPOSE_VERIFY)
+                .setAlgorithmParameterSpec(new RSAKeyGenParameterSpec(2048,RSAKeyGenParameterSpec.F4))
                 .setDigests(KeyProperties.DIGEST_SHA256, KeyProperties.DIGEST_SHA512)
                 .setCertificateNotBefore(new Date(System.currentTimeMillis() - 600000L))
                 .setCertificateSubject(new X500Principal("CN=Android, SerialNumber=5678"))
                 .setSignaturePaddings(KeyProperties.SIGNATURE_PADDING_RSA_PKCS1)
-                .setKeySize(2048)
                 .build());
 
         KeyPair keyPair = kpg.generateKeyPair();
@@ -268,10 +271,10 @@ public class InstrumentedTest {
         kpg.initialize(new KeyGenParameterSpec.Builder(
                 KEY_2,
                 KeyProperties.PURPOSE_SIGN | KeyProperties.PURPOSE_VERIFY)
+                .setAlgorithmParameterSpec(new ECGenParameterSpec("secp256r1"))
                 .setDigests(KeyProperties.DIGEST_SHA256, KeyProperties.DIGEST_SHA512)
                 .setCertificateNotBefore(new Date(System.currentTimeMillis() - 600000L))
                 .setCertificateSubject(new X500Principal("CN=Android, SerialNumber=5678"))
-                .setKeySize(256)
                 .build());
 
         keyPair = kpg.generateKeyPair();
