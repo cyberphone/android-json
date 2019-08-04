@@ -39,8 +39,6 @@ public class JSONCryptoHelper implements Serializable {
     public static final String RSA_PUBLIC_KEY          = "RSA";
 
     // JSON properties
-    public static final String AAD_JSON                = "aad";
-
     public static final String ALGORITHM_JSON          = "algorithm";
 
     public static final String CERTIFICATE_PATH_JSON   = "certificatePath";// X.509 Certificate path
@@ -57,7 +55,7 @@ public class JSONCryptoHelper implements Serializable {
 
     public static final String EPHEMERAL_KEY_JSON      = "ephemeralKey";   // JWK subset
 
-    public static final String EXCLUDE_JSON            = "exclude";        // JSF specific non-protected
+    public static final String EXCLUDES_JSON           = "excludes";       // JSF specific non-protected
 
     public static final String EXTENSIONS_JSON         = "extensions";     // JSF/JEF extensions
 
@@ -88,7 +86,6 @@ public class JSONCryptoHelper implements Serializable {
         jefReservedWords.add(ALGORITHM_JSON);
         jefReservedWords.add(IV_JSON);
         jefReservedWords.add(TAG_JSON);
-        jefReservedWords.add(AAD_JSON);
         jefReservedWords.add(ENCRYPTED_KEY_JSON);
         jefReservedWords.add(EPHEMERAL_KEY_JSON);
         jefReservedWords.add(CIPHER_TEXT_JSON);
@@ -99,20 +96,20 @@ public class JSONCryptoHelper implements Serializable {
         jefReservedWords.add(CERTIFICATE_PATH_JSON);
     }
 
-    static final LinkedHashSet<String> jcsReservedWords = new LinkedHashSet<String>();
+    static final LinkedHashSet<String> jsfReservedWords = new LinkedHashSet<String>();
 
     static {
-        jcsReservedWords.add(ALGORITHM_JSON);
-        jcsReservedWords.add(EXTENSIONS_JSON);
-        jcsReservedWords.add(EXCLUDE_JSON);
-        jcsReservedWords.add(KEY_ID_JSON);
-        jcsReservedWords.add(PUBLIC_KEY_JSON);
-        jcsReservedWords.add(CERTIFICATE_PATH_JSON);
-        jcsReservedWords.add(VALUE_JSON);
+        jsfReservedWords.add(ALGORITHM_JSON);
+        jsfReservedWords.add(EXTENSIONS_JSON);
+        jsfReservedWords.add(EXCLUDES_JSON);
+        jsfReservedWords.add(KEY_ID_JSON);
+        jsfReservedWords.add(PUBLIC_KEY_JSON);
+        jsfReservedWords.add(CERTIFICATE_PATH_JSON);
+        jsfReservedWords.add(VALUE_JSON);
     }
 
     /**
-     * For building "critical" decoders
+     * For building "extensions" decoders
      */
     public static abstract class Extension {
         
@@ -127,7 +124,7 @@ public class JSONCryptoHelper implements Serializable {
     }
 
     /**
-     * Holds list of supported "critical" extension decoders.
+     * Holds list of supported "extensions" decoders.
      *
      */
     public static class ExtensionHolder {
@@ -274,7 +271,7 @@ public class JSONCryptoHelper implements Serializable {
     }
 
     private static void checkOneExtension(String property, boolean encryptionMode) throws IOException {
-        if ((encryptionMode ? jefReservedWords : jcsReservedWords).contains(property)) {
+        if ((encryptionMode ? jefReservedWords : jsfReservedWords).contains(property)) {
             throw new IOException("Forbidden \"" + JSONCryptoHelper.EXTENSIONS_JSON + "\" property: " + property);
         }
     }

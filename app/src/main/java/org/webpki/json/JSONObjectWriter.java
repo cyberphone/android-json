@@ -47,10 +47,10 @@ import org.webpki.util.Base64URL;
 import org.webpki.util.ISODateTime;
 
 /**
- * Creates JSON objects and performs serialization according to ES6.
+ * Creates JSON objects and performs serialization according to JCS and ES6.
  * <p>
  * Also provides built-in support for encoding
- <a href="https://cyberphone.github.io/doc/security/jcs.html" target="_blank"><b>JCS (JSON Cleartext Signature)</b></a>, 
+ <a href="https://cyberphone.github.io/doc/security/jsf.html" target="_blank"><b>JSF (JSON Signature Format)</b></a>, 
 <a href="https://cyberphone.github.io/doc/security/jef.html" target="_blank"><b>JEF (JSON Encryption Format)</b></a>
 and
 <a href="https://tools.ietf.org/html/rfc7517" target="_blank"><b>JWK</b></a>
@@ -268,16 +268,18 @@ public class JSONObjectWriter implements Serializable {
 
     /**
      * Set a <code>Money</code> property.<p>
-     * Note: this is a <i>mapped</i> type since there is no <code>Money</code> type in JSON.</p><p>
+     * Note: this is a <i>mapped</i> type since there is no <code>Money</code> type in JSON.</p>
+     * <p>Specification: <a href="https://www.w3.org/TR/payment-request/#dfn-valid-decimal-monetary-value" 
+     * target="_blank">https://www.w3.org/TR/payment-request/#dfn-valid-decimal-monetary-value</a>.</p>
      * Sample:
      * <pre>
-     *    "amount": "568790.25"
+     *    "amount": "460.25"
      * </pre>
      * @param name Property
      * @param value Value
      * @return Current instance of {@link org.webpki.json.JSONObjectWriter}
      * @throws IOException &nbsp;
-     * @see #setMoney(String, BigDecimal, Integer)
+     * @see #setMoney(String, BigDecimal, int)
      */
     public JSONObjectWriter setMoney(String name, BigDecimal value) throws IOException {
         return setString(name, moneyToString(value, null));
@@ -286,6 +288,12 @@ public class JSONObjectWriter implements Serializable {
     /**
      * Set a <code>Money</code> property.<p>
      * Note: this is a <i>mapped</i> type since there is no <code>Money</code> type in JSON.</p>
+     * <p>Specification: <a href="https://www.w3.org/TR/payment-request/#dfn-valid-decimal-monetary-value" 
+     * target="_blank">https://www.w3.org/TR/payment-request/#dfn-valid-decimal-monetary-value</a>.</p>
+     * Sample:
+     * <pre>
+     *    "amount": "460.25"
+     * </pre>
      * @param name Property
      * @param value Value
      * @param decimals Number of fractional digits
@@ -293,7 +301,7 @@ public class JSONObjectWriter implements Serializable {
      * @throws IOException &nbsp;
      * @see #setMoney(String, BigDecimal)
      */
-    public JSONObjectWriter setMoney(String name, BigDecimal value, Integer decimals) throws IOException {
+    public JSONObjectWriter setMoney(String name, BigDecimal value, int decimals) throws IOException {
         return setString(name, moneyToString(value, decimals));
     }
 
@@ -565,12 +573,12 @@ public class JSONObjectWriter implements Serializable {
             JSONObjectReader rd = new JSONObjectReader(signedObject).clone();
             for (String property : signer.excluded) {
                 if (!rd.hasProperty(property)) {
-                    throw new IOException("Missing \"" + JSONCryptoHelper.EXCLUDE_JSON + "\" property: " + property);
+                    throw new IOException("Missing \"" + JSONCryptoHelper.EXCLUDES_JSON + "\" property: " + property);
                 }
                 rd.removeProperty(property);
             }
             signedObject = new JSONObjectWriter(rd);
-            outerObject.setStringArray(JSONCryptoHelper.EXCLUDE_JSON, signer.excluded);
+            outerObject.setStringArray(JSONCryptoHelper.EXCLUDES_JSON, signer.excluded);
         }
 
         // Finally, the signature itself
@@ -580,9 +588,9 @@ public class JSONObjectWriter implements Serializable {
     }
 
     /**
-     * Set a <a href="https://cyberphone.github.io/doc/security/jcs.html" target="_blank"><b>JCS</b></a>
+     * Set a <a href="https://cyberphone.github.io/doc/security/jsf.html" target="_blank"><b>JSF</b></a>
      * <code>"signature"</code>object.<p>
-     * This method performs all the processing needed for adding a JCS signature to the current object.</p>
+     * This method performs all the processing needed for adding a JSF signature to the current object.</p>
      * @param signer The interface to the signing key and type
      * @return Current instance of {@link org.webpki.json.JSONObjectWriter}
      * @throws IOException In case there a problem with keys etc.
@@ -606,7 +614,7 @@ import org.webpki.json.JSONSignatureDecoder;
            .
            .
            .
-    public void signAndVerifyJCS(PrivateKey privateKey, PublicKey publicKey) throws IOException {
+    public void signAndVerifyJSF(PrivateKey privateKey, PublicKey publicKey) throws IOException {
     
         // Create an empty JSON document
         JSONObjectWriter writer = new JSONObjectWriter();
@@ -626,14 +634,14 @@ import org.webpki.json.JSONSignatureDecoder;
 <div id="verify" style="display:inline-block;background:#F8F8F8;border-width:1px;border-style:solid;border-color:grey;padding:0pt 10pt 0pt 10pt;box-shadow:3pt 3pt 3pt #D0D0D0"><pre>{
   "<span style="color:#C00000">myProperty</span>": "<span style="color:#0000C0">Some data</span>",
   "<span style="color:#C00000">signature</span>": {
-    "<span style="color:#C00000">alg</span>": "<span style="color:#0000C0">ES256</span>",
-    "<span style="color:#C00000">jwk</span>": {
+    "<span style="color:#C00000">algorithm</span>": "<span style="color:#0000C0">ES256</span>",
+    "<span style="color:#C00000">publicKey</span>": {
       "<span style="color:#C00000">kty</span>": "<span style="color:#0000C0">EC</span>",
       "<span style="color:#C00000">crv</span>": "<span style="color:#0000C0">P-256</span>",
       "<span style="color:#C00000">x</span>": "<span style="color:#0000C0">vlYxD4dtFJOp1_8_QUcieWCW-4KrLMmFL2rpkY1bQDs</span>",
       "<span style="color:#C00000">y</span>": "<span style="color:#0000C0">fxEF70yJenP3SPHM9hv-EnvhG6nXr3_S-fDqoj-F6yM</span>"
     },
-    "<span style="color:#C00000">val</span>": "<span style="color:#0000C0">23NSrdC9ol5N3-wYPxdV4w8Ylm_mhUNijbCuJ3G_DqWGiN5j8X5qZxyBo2yy8kGou4yBh74egauup7u2KYytLQ</span>"
+    "<span style="color:#C00000">value</span>": "<span style="color:#0000C0">23NSrdC9ol5N3-wYPxdV4w8Ylm_mhUNijbCuJ3G_DqWGiN5j8X5qZxyBo2yy8kGou4yBh74egauup7u2KYytLQ</span>"
   }
 }
 </pre></div>    
@@ -660,8 +668,8 @@ import org.webpki.json.JSONSignatureDecoder;
         return this;
     }
     /**
-     * Set a <a href="https://cyberphone.github.io/doc/security/jcs.html" target="_blank"><b>JCS</b></a>
-     * <code>"signatures"</code> [] object.<p>
+     * Set a <a href="https://cyberphone.github.io/doc/security/jsf.html" target="_blank"><b>JSF</b></a>
+     * multi-signature object.<p>
      * This method performs all the processing needed for adding multiple JSF signatures to the current object.</p>
      * @param signer Signature interface
      * @return Current instance of {@link org.webpki.json.JSONObjectWriter}
@@ -683,14 +691,14 @@ import org.webpki.json.JSONSignatureDecoder;
             }
             if (signer.excluded != null) {
                 throw new IOException("Only the first signer can set \"" + 
-                                      JSONCryptoHelper.EXCLUDE_JSON + "\"");
+                                      JSONCryptoHelper.EXCLUDES_JSON + "\"");
             }
             JSONArrayReader signatureArray = reader.getArray(JSONCryptoHelper.SIGNERS_JSON);
             do {
                 oldSignatures.add(signatureArray.getObject().root);
             } while (signatureArray.hasMore());
-            if (reader.hasProperty(JSONCryptoHelper.EXCLUDE_JSON)) {
-                signer.setExcluded(reader.getStringArray(JSONCryptoHelper.EXCLUDE_JSON));
+            if (reader.hasProperty(JSONCryptoHelper.EXCLUDES_JSON)) {
+                signer.setExcluded(reader.getStringArray(JSONCryptoHelper.EXCLUDES_JSON));
             }
             if (reader.hasProperty(JSONCryptoHelper.EXTENSIONS_JSON)) {
                 signer.setExtensionNames(reader.getStringArray(JSONCryptoHelper.EXTENSIONS_JSON));
@@ -713,7 +721,7 @@ import org.webpki.json.JSONSignatureDecoder;
     }
 
     /**
-     * Create a <a href="https://cyberphone.github.io/doc/security/jcs.html" target="_blank">JCS</a>
+     * Create a <a href="https://cyberphone.github.io/doc/security/jsf.html" target="_blank">JSF</a>
      * (<a href="https://tools.ietf.org/html/rfc7517" target="_blank"><b>JWK</b></a>) formatted public key.<p>
      * Typical use:
      *<pre>
@@ -751,7 +759,7 @@ import org.webpki.json.JSONSignatureDecoder;
     }
 
     /**
-     * Set a <a href="https://cyberphone.github.io/doc/security/jcs.html" target="_blank">JCS</a>
+     * Set a <a href="https://cyberphone.github.io/doc/security/jsf.html" target="_blank">JSF</a>
      * (<a href="https://tools.ietf.org/html/rfc7517" target="_blank"><b>JWK</b></a>) formatted public key.<p>
      * Resulting JSON:
      * <pre>
@@ -771,7 +779,7 @@ import org.webpki.json.JSONSignatureDecoder;
     }
 
     /**
-     * Set a <a href="https://cyberphone.github.io/doc/security/jcs.html" target="_blank">JCS</a>
+     * Set a <a href="https://cyberphone.github.io/doc/security/jsf.html" target="_blank">JSF</a>
      * (<a href="https://tools.ietf.org/html/rfc7517" target="_blank"><b>JWK</b></a>) formatted public key.<p>
      * This method is equivalent to {@link #setPublicKey(PublicKey, AlgorithmPreferences)}
      * using {@link AlgorithmPreferences#JOSE} as second argument.</p>
@@ -784,7 +792,7 @@ import org.webpki.json.JSONSignatureDecoder;
     }
 
     /**
-     * Set a <a href="https://cyberphone.github.io/doc/security/jcs.html" target="_blank"><b>JCS</b></a>
+     * Set a <a href="https://cyberphone.github.io/doc/security/jsf.html" target="_blank"><b>JSF</b></a>
      * certificate path property.
      * <p>Each path element (certificate) is base64url encoded and the path must be
      * <i>sorted</i> where certificate[i] is signed by certificate[i + 1].</p><p>
