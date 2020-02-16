@@ -51,6 +51,7 @@ public class RawReader {
         currentKeyPair = jwk.getKeyPair();
         return keyId;
     }
+
     RawReader(Context appContext) throws Exception {
         this.appContext = appContext;
         ecKeyId = getKeyId(R.raw.ecprivatekey_jwk);

@@ -194,18 +194,17 @@ public class MainActivity extends AppCompatActivity {
             JSONObjectReader jsfObject =
                     signedData.getObject(JSONObjectWriter.SIGNATURE_DEFAULT_LABEL_JSON);
             JSONCryptoHelper.Options options = new JSONCryptoHelper.Options();
-            options.setKeyIdOption(jsfObject
-                    .hasProperty(JSONCryptoHelper.KEY_ID_JSON) ?
-        JSONCryptoHelper.KEY_ID_OPTIONS.REQUIRED : JSONCryptoHelper.KEY_ID_OPTIONS.FORBIDDEN);
             String algorithm = jsfObject.getString(JSONCryptoHelper.ALGORITHM_JSON);
             for (MACAlgorithms macs : MACAlgorithms.values()) {
                 if (algorithm.equals(macs.getAlgorithmId(AlgorithmPreferences.JOSE_ACCEPT_PREFER))) {
                     options.setPublicKeyOption(JSONCryptoHelper.PUBLIC_KEY_OPTIONS.FORBIDDEN);
+                    options.setKeyIdOption(JSONCryptoHelper.KEY_ID_OPTIONS.REQUIRED);
                     algorithm = null;
                     break;
                 }
             }
             if (algorithm != null) {
+                options.setKeyIdOption(JSONCryptoHelper.KEY_ID_OPTIONS.OPTIONAL);
                 if (jsfObject.hasProperty(JSONCryptoHelper.CERTIFICATE_PATH_JSON)) {
                     options.setPublicKeyOption(JSONCryptoHelper.PUBLIC_KEY_OPTIONS.CERTIFICATE_PATH);
                 } else {
