@@ -70,7 +70,8 @@ public class InstrumentedTest {
     void decrypt(int resource, boolean inLineKey) throws Exception {
         JSONCryptoHelper.Options options =
                 new JSONCryptoHelper.Options()
-                    .setRequirePublicKeyInfo(inLineKey)
+                    .setPublicKeyOption(inLineKey ?
+     JSONCryptoHelper.PUBLIC_KEY_OPTIONS.REQUIRED : JSONCryptoHelper.PUBLIC_KEY_OPTIONS.FORBIDDEN)
                     .setKeyIdOption(inLineKey ?
      JSONCryptoHelper.KEY_ID_OPTIONS.FORBIDDEN : JSONCryptoHelper.KEY_ID_OPTIONS.REQUIRED);
         assertTrue("Decrypt",
@@ -146,8 +147,9 @@ public class InstrumentedTest {
                    ArrayUtil.compare(RawReader.dataToBeEncrypted,
                                      RawReader.getJSONResource(R.raw.a128cbc_hs256_json)
                                          .getEncryptionObject(new JSONCryptoHelper.Options()
-                                            .setKeyIdOption(JSONCryptoHelper.KEY_ID_OPTIONS.OPTIONAL))
-                                             .getDecryptedData(RawReader.secretKey)));
+                                             .setKeyIdOption(JSONCryptoHelper.KEY_ID_OPTIONS.OPTIONAL)
+                                             .setPublicKeyOption(JSONCryptoHelper.PUBLIC_KEY_OPTIONS.PLAIN_ENCRYPTION))
+                                                 .getDecryptedData(RawReader.secretKey)));
     }
 
     JSONObjectWriter getData() throws Exception {
@@ -209,12 +211,12 @@ public class InstrumentedTest {
                                                             MACAlgorithms.HMAC_SHA256)).toString();
         JSONParser.parse(signature)
                 .getSignature(new JSONCryptoHelper.Options()
-                        .setRequirePublicKeyInfo(false))
+                        .setPublicKeyOption(JSONCryptoHelper.PUBLIC_KEY_OPTIONS.FORBIDDEN))
                 .verify(new JSONSymKeyVerifier(RawReader.secretKey));
         try {
             JSONParser.parse(signature.replace("now", "then"))
                     .getSignature(new JSONCryptoHelper.Options()
-                            .setRequirePublicKeyInfo(false))
+                        .setPublicKeyOption(JSONCryptoHelper.PUBLIC_KEY_OPTIONS.FORBIDDEN))
                     .verify(new JSONSymKeyVerifier(RawReader.secretKey));
             fail("verify");
         } catch (Exception e) {
@@ -300,7 +302,7 @@ public class InstrumentedTest {
         Log.i("SIGN", signedData.toString());
         reader =
                 JSONParser.parse(signedData.serializeToBytes(JSONOutputFormats.PRETTY_PRINT));
-        reader.getSignature(new JSONCryptoHelper.Options().setRequirePublicKeyInfo(false))
+        reader.getSignature(new JSONCryptoHelper.Options().setPublicKeyOption(JSONCryptoHelper.PUBLIC_KEY_OPTIONS.FORBIDDEN))
                 .verify(new JSONAsymKeyVerifier(keyPair.getPublic()));
 
         keyStore.setEntry(
@@ -317,7 +319,8 @@ public class InstrumentedTest {
         Log.i("CERTSIGN", signedData.toString());
         reader =
                 JSONParser.parse(signedData.serializeToBytes(JSONOutputFormats.PRETTY_PRINT));
-        reader.getSignature(new JSONCryptoHelper.Options());
+        reader.getSignature(new JSONCryptoHelper.Options()
+                .setPublicKeyOption(JSONCryptoHelper.PUBLIC_KEY_OPTIONS.CERTIFICATE_PATH));
     }
 
     @Test

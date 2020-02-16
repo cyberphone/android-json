@@ -189,16 +189,27 @@ public class MainActivity extends AppCompatActivity {
     @JavascriptInterface
     public void doVerify(String jsonData) {
         try {
-            // Normally you know what to expect so this code is a bit over-the-top
+            // Normally you SHOULD know what to expect so this code is a bit over-the-top
             JSONObjectReader signedData = JSONParser.parse(jsonData);
+            JSONObjectReader jsfObject =
+                    signedData.getObject(JSONObjectWriter.SIGNATURE_DEFAULT_LABEL_JSON);
             JSONCryptoHelper.Options options = new JSONCryptoHelper.Options();
-            String algorithm =
-                    signedData.getObject(JSONObjectWriter.SIGNATURE_DEFAULT_LABEL_JSON)
-                            .getString(JSONCryptoHelper.ALGORITHM_JSON);
+            options.setKeyIdOption(jsfObject
+                    .hasProperty(JSONCryptoHelper.KEY_ID_JSON) ?
+        JSONCryptoHelper.KEY_ID_OPTIONS.REQUIRED : JSONCryptoHelper.KEY_ID_OPTIONS.FORBIDDEN);
+            String algorithm = jsfObject.getString(JSONCryptoHelper.ALGORITHM_JSON);
             for (MACAlgorithms macs : MACAlgorithms.values()) {
                 if (algorithm.equals(macs.getAlgorithmId(AlgorithmPreferences.JOSE_ACCEPT_PREFER))) {
-                    options.setRequirePublicKeyInfo(false)
-                            .setKeyIdOption(JSONCryptoHelper.KEY_ID_OPTIONS.REQUIRED);
+                    options.setPublicKeyOption(JSONCryptoHelper.PUBLIC_KEY_OPTIONS.FORBIDDEN);
+                    algorithm = null;
+                    break;
+                }
+            }
+            if (algorithm != null) {
+                if (jsfObject.hasProperty(JSONCryptoHelper.CERTIFICATE_PATH_JSON)) {
+                    options.setPublicKeyOption(JSONCryptoHelper.PUBLIC_KEY_OPTIONS.CERTIFICATE_PATH);
+                } else {
+                    options.setPublicKeyOption(JSONCryptoHelper.PUBLIC_KEY_OPTIONS.REQUIRED);
                 }
             }
             JSONSignatureDecoder signature = signedData.getSignature(options);
@@ -351,10 +362,12 @@ public class MainActivity extends AppCompatActivity {
     @JavascriptInterface
     public void doDecrypt(String jsonEncryptionObject) {
         try {
-            JSONDecryptionDecoder encryptionObject =
-                    JSONParser.parse(jsonEncryptionObject)
-                            .getEncryptionObject(new JSONCryptoHelper.Options()
-                                    .setKeyIdOption(JSONCryptoHelper.KEY_ID_OPTIONS.OPTIONAL));
+            JSONObjectReader jefObject = JSONParser.parse(jsonEncryptionObject);
+            JSONCryptoHelper.Options options = new JSONCryptoHelper.Options()
+                .setPublicKeyOption(jefObject.hasProperty(JSONCryptoHelper.KEY_ENCRYPTION_JSON) ?
+     JSONCryptoHelper.PUBLIC_KEY_OPTIONS.OPTIONAL : JSONCryptoHelper.PUBLIC_KEY_OPTIONS.PLAIN_ENCRYPTION)
+                .setKeyIdOption(JSONCryptoHelper.KEY_ID_OPTIONS.OPTIONAL);
+            JSONDecryptionDecoder encryptionObject = jefObject.getEncryptionObject(options);
             String decryptedData = null;
             if (encryptionObject.isSharedSecret()) {
                 decryptedData = new String(encryptionObject.getDecryptedData(RawReader.secretKey),"UTF-8");

@@ -19,7 +19,7 @@ package org.webpki.crypto;
 import java.io.IOException;
 import java.io.ByteArrayInputStream;
 
-import java.util.Vector;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.HashSet;
 
@@ -57,7 +57,7 @@ public class CertificateUtil {
     }
 
     public static X509Certificate[] makeCertificatePath(List<byte[]> certificateBlobs) throws IOException {
-        Vector<X509Certificate> certificates = new Vector<X509Certificate>();
+        ArrayList<X509Certificate> certificates = new ArrayList<X509Certificate>();
         for (byte[] certificateBlob : certificateBlobs) {
             try {
                 CertificateFactory cf = CertificateFactory.getInstance("X.509");

@@ -43,15 +43,15 @@ public class JSONCryptoHelper implements Serializable {
 
     public static final String CERTIFICATE_PATH_JSON   = "certificatePath";// X.509 Certificate path
 
+    public static final String CHAIN_JSON              = "chain";          // JSF specific
+
     public static final String CIPHER_TEXT_JSON        = "cipherText";     // JEF specific
 
     public static final String CRV_JSON                = "crv";            // JWK
 
     public static final String E_JSON                  = "e";              // JWK
 
-    public static final String ENCRYPTED_KEY_JSON      = "encryptedKey";   // JEF specific
-
-    public static final String RECIPIENTS_JSON         = "recipients";     // JEF specific
+    public static final String ENCRYPTED_KEY_JSON      = "encryptedKey";   // JWE/JEF specific
 
     public static final String EPHEMERAL_KEY_JSON      = "ephemeralKey";   // JWK subset
 
@@ -61,6 +61,8 @@ public class JSONCryptoHelper implements Serializable {
 
     public static final String IV_JSON                 = "iv";             // JWE/JEF
 
+    public static final String KEY_ENCRYPTION_JSON     = "keyEncryption";  // JEF
+
     public static final String KEY_ID_JSON             = "keyId";          // JSF/JEF
 
     public static final String KTY_JSON                = "kty";            // JWK
@@ -68,6 +70,8 @@ public class JSONCryptoHelper implements Serializable {
     public static final String N_JSON                  = "n";              // JWK
 
     public static final String PUBLIC_KEY_JSON         = "publicKey";      // Public key holder (subset JWK)
+
+    public static final String RECIPIENTS_JSON         = "recipients";     // JEF specific
 
     public static final String SIGNERS_JSON            = "signers";        // JSF - Multiple signers
 
@@ -84,27 +88,30 @@ public class JSONCryptoHelper implements Serializable {
 
     static {
         jefReservedWords.add(ALGORITHM_JSON);
-        jefReservedWords.add(IV_JSON);
-        jefReservedWords.add(TAG_JSON);
+        jefReservedWords.add(CERTIFICATE_PATH_JSON);
+        jefReservedWords.add(CIPHER_TEXT_JSON);
         jefReservedWords.add(ENCRYPTED_KEY_JSON);
         jefReservedWords.add(EPHEMERAL_KEY_JSON);
-        jefReservedWords.add(CIPHER_TEXT_JSON);
-        jefReservedWords.add(RECIPIENTS_JSON);
         jefReservedWords.add(EXTENSIONS_JSON);
+        jefReservedWords.add(IV_JSON);
+        jefReservedWords.add(KEY_ENCRYPTION_JSON);
         jefReservedWords.add(KEY_ID_JSON);
         jefReservedWords.add(PUBLIC_KEY_JSON);
-        jefReservedWords.add(CERTIFICATE_PATH_JSON);
+        jefReservedWords.add(RECIPIENTS_JSON);
+        jefReservedWords.add(TAG_JSON);
     }
 
     static final LinkedHashSet<String> jsfReservedWords = new LinkedHashSet<String>();
 
     static {
         jsfReservedWords.add(ALGORITHM_JSON);
+        jsfReservedWords.add(CERTIFICATE_PATH_JSON);
+        jsfReservedWords.add(CHAIN_JSON);
         jsfReservedWords.add(EXTENSIONS_JSON);
         jsfReservedWords.add(EXCLUDES_JSON);
         jsfReservedWords.add(KEY_ID_JSON);
         jsfReservedWords.add(PUBLIC_KEY_JSON);
-        jsfReservedWords.add(CERTIFICATE_PATH_JSON);
+        jsfReservedWords.add(SIGNERS_JSON);
         jsfReservedWords.add(VALUE_JSON);
     }
 
@@ -129,7 +136,8 @@ public class JSONCryptoHelper implements Serializable {
      */
     public static class ExtensionHolder {
         
-        LinkedHashMap<String,ExtensionEntry> extensions = new LinkedHashMap<String,ExtensionEntry>();
+        LinkedHashMap<String,ExtensionEntry> extensions = 
+                new LinkedHashMap<String,ExtensionEntry>();
 
         public ExtensionHolder addExtension(Class<? extends Extension> extensionClass,
                                             boolean mandatory) throws IOException {
@@ -155,10 +163,80 @@ public class JSONCryptoHelper implements Serializable {
     }
 
     /**
-     * Parameter to Options
+     * KeyID parameter to Options
      *
      */
     public enum KEY_ID_OPTIONS {FORBIDDEN, REQUIRED, OPTIONAL};
+
+    /**
+     * Public key parameter to Options
+     * <br>KEY_ID_XOR_PUBLIC_KEY One or the other<br>
+     * KEY_ID_OR_PUBLIC_KEY At least of<br>
+     */
+    public enum PUBLIC_KEY_OPTIONS {
+        /**
+         * Only valid for encryption = No key encryption
+         */
+        PLAIN_ENCRYPTION      (),
+
+        /**
+         * key encryption but no public key or certificate path
+         */
+        FORBIDDEN             (), 
+
+        /**
+         * key encryption with public key
+         */
+        REQUIRED              (), 
+
+        /**
+         * key encryption with optional public key
+         */
+        OPTIONAL              (), 
+
+        /**
+         * key encryption with at least a public key or a key id
+         */
+        KEY_ID_OR_PUBLIC_KEY  (),
+
+        /**
+         * key encryption with a public key or a key id
+         */
+        KEY_ID_XOR_PUBLIC_KEY (),
+
+        /**
+         * key encryption with a certificate path
+         */
+        CERTIFICATE_PATH      ();
+        
+        private boolean keyIdTest(String keyId) {
+            return keyId == null && this == KEY_ID_XOR_PUBLIC_KEY;
+        }
+
+        void checkPublicKey(String keyId) throws IOException {
+            if (this == FORBIDDEN || (this != REQUIRED && 
+                                      this != OPTIONAL &&
+                                      this != KEY_ID_OR_PUBLIC_KEY &&
+                                      !keyIdTest(keyId))) {
+                throw new IOException("Unexpected \"" + PUBLIC_KEY_JSON + "\"");
+            }
+        }
+
+        void checkCertificatePath() throws IOException {
+            if (this != CERTIFICATE_PATH) {
+                throw new IOException("Unexpected \"" + CERTIFICATE_PATH_JSON + "\"");
+            }
+        }
+
+        void checkMissingKey(String keyId) throws IOException {
+            if (this == REQUIRED || 
+                this == CERTIFICATE_PATH ||
+                (keyId == null && this == KEY_ID_OR_PUBLIC_KEY) ||
+                keyIdTest(keyId)) {
+                throw new IOException("Missing key information");
+            }
+        }
+    };
 
     /**
      * Common JEF/JSF decoding options.
@@ -166,8 +244,8 @@ public class JSONCryptoHelper implements Serializable {
      * The following options are currently recognized:
      * <ul>
      * <li>Algorithm preference.  Default: JOSE</li>
-     * <li>Require public key info in line.  Default: true</li>
-     * <li>keyId option.  Default: FORBIDDEN</li>
+     * <li>Public key option.  Default: OPTIONAL</li>
+     * <li>keyId option.  Default: OPTIONAL</li>
      * <li>Permitted extensions.  Default: none</li>
      * </ul>
      * In addition, the Options class is used for defining external readers for &quot;remoteKey&quot; support.
@@ -176,8 +254,8 @@ public class JSONCryptoHelper implements Serializable {
     public static class Options {
         
         AlgorithmPreferences algorithmPreferences = AlgorithmPreferences.JOSE;
-        boolean requirePublicKeyInfo = true;
-        KEY_ID_OPTIONS keyIdOption = KEY_ID_OPTIONS.FORBIDDEN;
+        PUBLIC_KEY_OPTIONS publicKeyOption = PUBLIC_KEY_OPTIONS.OPTIONAL;
+        KEY_ID_OPTIONS keyIdOption = KEY_ID_OPTIONS.OPTIONAL;
         ExtensionHolder extensionHolder = new ExtensionHolder();
         LinkedHashSet<String> exclusions;
         boolean encryptionMode;
@@ -187,8 +265,8 @@ public class JSONCryptoHelper implements Serializable {
             return this;
         }
 
-        public Options setRequirePublicKeyInfo(boolean flag) {
-            this.requirePublicKeyInfo = flag;
+        public Options setPublicKeyOption(PUBLIC_KEY_OPTIONS publicKeyOption) {
+            this.publicKeyOption = publicKeyOption;
             return this;
         }
 
@@ -207,15 +285,24 @@ public class JSONCryptoHelper implements Serializable {
             return this;
         }
 
-        void encryptionMode(boolean flag) throws IOException {
-            encryptionMode = flag;
-            if (flag) {
+        void initializeOperation(boolean encryptionMode) throws IOException {
+            this.encryptionMode = encryptionMode;
+            if (encryptionMode) {
                 if (exclusions != null) {
-                    throw new IOException("\"setPermittedExclusions()\" is not applicable to encryption");
+                    throw new IOException("\"setPermittedExclusions()\" " +
+                                          "is not applicable to encryption");
                 }
+            } else if (publicKeyOption == PUBLIC_KEY_OPTIONS.PLAIN_ENCRYPTION) {
+                throw new IOException("\"" + PUBLIC_KEY_OPTIONS.PLAIN_ENCRYPTION + 
+                                     "\" is not applicable to signatures");
+            }
+            if (keyIdOption != KEY_ID_OPTIONS.OPTIONAL &&
+                 (publicKeyOption == PUBLIC_KEY_OPTIONS.KEY_ID_OR_PUBLIC_KEY ||
+                  publicKeyOption == PUBLIC_KEY_OPTIONS.KEY_ID_XOR_PUBLIC_KEY)) {
+                throw new IOException("Invalid key id and public key option combination");
             }
             for (String extension : extensionHolder.extensions.keySet()) {
-                checkOneExtension(extension, flag);
+                checkOneExtension(extension, encryptionMode);
             }
         }
 
@@ -226,32 +313,43 @@ public class JSONCryptoHelper implements Serializable {
                     throw new IOException("Missing \"" + JSONCryptoHelper.KEY_ID_JSON + "\"");
                 }
             } else if (keyIdOption == JSONCryptoHelper.KEY_ID_OPTIONS.FORBIDDEN) {
-                throw new IOException("Use of \"" + JSONCryptoHelper.KEY_ID_JSON + "\" must be set in options");
+                throw new IOException("Unexpected \"" + JSONCryptoHelper.KEY_ID_JSON + "\"");
             }
             return keyId;
         }
 
-        void getExtensions(JSONObjectReader innerObject, JSONObjectReader outerObject, LinkedHashMap<String, Extension> extensions) throws IOException {
-            String[] extensionList = outerObject.getStringArrayConditional(JSONCryptoHelper.EXTENSIONS_JSON);
+        void getExtensions(JSONObjectReader innerObject, 
+                           JSONObjectReader outerObject,
+                           LinkedHashMap<String, Extension> extensions) throws IOException {
+            String[] extensionList = 
+                    outerObject.getStringArrayConditional(JSONCryptoHelper.EXTENSIONS_JSON);
             if (extensionList == null) {
                 for (String name : extensionHolder.extensions.keySet()) {
                     if (extensionHolder.extensions.get(name).mandatory) {
-                        throw new IOException("Missing \"" + JSONCryptoHelper.EXTENSIONS_JSON + "\" mandatory extension: " + name);
+                        throw new IOException("Missing \"" + 
+                                             JSONCryptoHelper.EXTENSIONS_JSON + 
+                                             "\" mandatory extension: " + name);
                     }
                 }
             } else {
                 checkExtensions(extensionList, encryptionMode);
                 if (extensionHolder.extensions.isEmpty()) {
-                    throw new IOException("Use of \"" + JSONCryptoHelper.EXTENSIONS_JSON + "\" must be set in options");
+                    throw new IOException("Use of \"" + 
+                                          JSONCryptoHelper.EXTENSIONS_JSON + 
+                                          "\" must be set in options");
                 }
                 for (String name : extensionList) {
-                    JSONCryptoHelper.ExtensionEntry extensionEntry = extensionHolder.extensions.get(name);
+                    JSONCryptoHelper.ExtensionEntry extensionEntry = 
+                            extensionHolder.extensions.get(name);
                     if (extensionEntry == null) {
-                        throw new IOException("Unexpected \"" + JSONCryptoHelper.EXTENSIONS_JSON + "\" extension: " + name);
+                        throw new IOException("Unexpected \"" + 
+                                              JSONCryptoHelper.EXTENSIONS_JSON + 
+                                              "\" extension: " + name);
                     }
                     if (innerObject.hasProperty(name)) {
                         try {
-                            JSONCryptoHelper.Extension extension = extensionEntry.extensionClass.newInstance();
+                            JSONCryptoHelper.Extension extension = 
+                                    extensionEntry.extensionClass.newInstance();
                             extension.decode(innerObject);
                             extensions.put(name, extension);
                         } catch (InstantiationException e) {
@@ -263,22 +361,31 @@ public class JSONCryptoHelper implements Serializable {
                 }
             }
             for (String name : extensionHolder.extensions.keySet()) {
-                if (!extensions.containsKey(name) && extensionHolder.extensions.get(name).mandatory) {
-                    throw new IOException("Missing \"" + JSONCryptoHelper.EXTENSIONS_JSON + "\" mandatory extension: " + name);
+                if (!extensions.containsKey(name) && 
+                    extensionHolder.extensions.get(name).mandatory) {
+                    throw new IOException("Missing \"" + 
+                                          JSONCryptoHelper.EXTENSIONS_JSON + 
+                                          "\" mandatory extension: " + name);
                 }
             }
         }
     }
 
-    private static void checkOneExtension(String property, boolean encryptionMode) throws IOException {
+    private static void checkOneExtension(String property, 
+                                          boolean encryptionMode) throws IOException {
         if ((encryptionMode ? jefReservedWords : jsfReservedWords).contains(property)) {
-            throw new IOException("Forbidden \"" + JSONCryptoHelper.EXTENSIONS_JSON + "\" property: " + property);
+            throw new IOException("Forbidden \"" + 
+                                  JSONCryptoHelper.EXTENSIONS_JSON + 
+                                  "\" property: " + property);
         }
     }
 
-    static String[] checkExtensions(String[] properties, boolean encryptionMode) throws IOException {
+    static String[] checkExtensions(String[] properties, 
+                                    boolean encryptionMode) throws IOException {
         if (properties.length == 0) {
-            throw new IOException("Empty \"" + JSONCryptoHelper.EXTENSIONS_JSON + "\" array not allowed");
+            throw new IOException("Empty \"" + 
+                                  JSONCryptoHelper.EXTENSIONS_JSON + 
+                                  "\" array not allowed");
         }
         for (String property : properties) {
             checkOneExtension(property, encryptionMode);

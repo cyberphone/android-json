@@ -29,7 +29,7 @@ import java.security.cert.X509Certificate;
 
 import java.util.EnumSet;
 import java.util.GregorianCalendar;
-import java.util.Vector;
+import java.util.ArrayList;
 
 import java.util.regex.Pattern;
 
@@ -43,18 +43,20 @@ import org.webpki.util.ISODateTime;
  * <p>
  * Returned by the parser methods.
  * Also provides built-in support for decoding
- <a href="https://cyberphone.github.io/doc/security/jsf.html" target="_blank"><b>JSF (JSON Signature Format)</b></a>
- and
-<a href="https://cyberphone.github.io/doc/security/jef.html" target="_blank"><b>JEF (JSON Encryption Format)</b></a>
- constructs.</p>
- <p>In addition,
- there are methods for reading
- keys supplied in the <a href="https://tools.ietf.org/html/rfc7517" target="_blank"><b>JWK (JSON Web Key)</b></a>
- format.
- @see JSONParser
- @see #getObject(String)
- @see JSONArrayReader#getObject()
- @see JSONObjectWriter#JSONObjectWriter(JSONObjectReader)
+ * <a href="https://cyberphone.github.io/doc/security/jsf.html" target="_blank">
+ * <b>JSF (JSON Signature Format)</b></a>
+ * and
+ * <a href="https://cyberphone.github.io/doc/security/jef.html" target="_blank">
+ * <b>JEF (JSON Encryption Format)</b></a>
+ * constructs.</p>
+ * <p>In addition,
+ * there are methods for reading keys supplied in the
+ * <a href="https://tools.ietf.org/html/rfc7517" target="_blank"><b>JWK (JSON Web Key)</b></a>
+ * format.
+ * @see JSONParser
+ * @see #getObject(String)
+ * @see JSONArrayReader#getObject()
+ * @see JSONObjectWriter#JSONObjectWriter(JSONObjectReader)
  */
 public class JSONObjectReader implements Serializable, Cloneable {
 
@@ -228,7 +230,8 @@ public class JSONObjectReader implements Serializable, Cloneable {
 
     /**
      * Read a JSON dateTime property in ISO format.<p>
-     * Note: Since JSON does not support a native dateTime type, this method builds on <i>mapping</i>.</p>
+     * Note: Since JSON does not support a native dateTime 
+     * type, this method builds on <i>mapping</i>.</p>
      * @param name Property
      * @param format Required input format
      * @return Java <code>GregorianCalendar</code>
@@ -237,7 +240,8 @@ public class JSONObjectReader implements Serializable, Cloneable {
      * @see JSONObjectWriter#setDateTime(String, GregorianCalendar, EnumSet)
      */
     public GregorianCalendar getDateTime(String name, 
-                                         EnumSet<ISODateTime.DatePatterns> format) throws IOException {
+                                         EnumSet<ISODateTime.DatePatterns> format) 
+    throws IOException {
         return ISODateTime.parseDateTime(getString(name), format);
     }
 
@@ -268,7 +272,8 @@ public class JSONObjectReader implements Serializable, Cloneable {
                 DECIMAL_PATTERN.matcher(value).matches()) {
             BigDecimal parsed = new BigDecimal(value);
             if (decimals != null && parsed.scale() != decimals) {
-                throw new IOException("Incorrect number of decimals in \"Money\": " + parsed.scale());
+                throw new IOException("Incorrect number of decimals in \"Money\": " + 
+                                      parsed.scale());
             }
             return parsed;
         }
@@ -277,7 +282,8 @@ public class JSONObjectReader implements Serializable, Cloneable {
 
     /**
      * Read a Money property.<p>
-     * Note: Since JSON does not support a native Money type, this method builds on <i>mapping</i>.</p>
+     * Note: Since JSON does not support a native Money type, 
+     * this method builds on <i>mapping</i>.</p>
      * @param name Property
      * @return Java <code>BigInteger</code>
      * @throws IOException &nbsp;
@@ -289,7 +295,8 @@ public class JSONObjectReader implements Serializable, Cloneable {
 
     /**
      * Read a Money property.<p>
-     * Note: Since JSON does not support a native Money type, this method builds on <i>mapping</i>.</p>
+     * Note: Since JSON does not support a native Money type, 
+     * this method builds on <i>mapping</i>.</p>
      * @param name Property
      * @param decimals Required number of fractional digits or <b>null</b> if unspecified
      * @return Java <code>BigDecimal</code>
@@ -309,7 +316,8 @@ public class JSONObjectReader implements Serializable, Cloneable {
 
     /**
      * Read a BigDecimal property.<p>
-     * Note: Since JSON does not support a native BigDecimal type, this method builds on <i>mapping</i>.</p>
+     * Note: Since JSON does not support a native BigDecimal type, 
+     * this method builds on <i>mapping</i>.</p>
      * @param name Property
      * @return Java <code>BigInteger</code>
      * @throws IOException &nbsp;
@@ -328,7 +336,8 @@ public class JSONObjectReader implements Serializable, Cloneable {
 
     /**
      * Read a BigInteger property.<p>
-     * Note: Since JSON does not support a native BigInteger type, this method builds on <i>mapping</i>.</p>
+     * Note: Since JSON does not support a native BigInteger type, 
+     * this method builds on <i>mapping</i>.</p>
      * @param name Property
      * @return Java <code>BigInteger</code>
      * @throws IOException &nbsp;
@@ -347,7 +356,8 @@ public class JSONObjectReader implements Serializable, Cloneable {
      */
     @SuppressWarnings("unchecked")
     public JSONArrayReader getJSONArrayReader() {
-        return root.properties.containsKey(null) ? new JSONArrayReader((Vector<JSONValue>) root.properties.get(null).value) : null;
+        return root.properties.containsKey(null) ?
+                new JSONArrayReader((ArrayList<JSONValue>) root.properties.get(null).value) : null;
     }
 
     /**
@@ -386,7 +396,7 @@ public class JSONObjectReader implements Serializable, Cloneable {
     @SuppressWarnings("unchecked")
     public JSONArrayReader getArray(String name) throws IOException {
         JSONValue value = getProperty(name, JSONTypes.ARRAY);
-        return new JSONArrayReader((Vector<JSONValue>) value.value);
+        return new JSONArrayReader((ArrayList<JSONValue>) value.value);
     }
 
     /**
@@ -443,9 +453,9 @@ public class JSONObjectReader implements Serializable, Cloneable {
     }
 
     String[] getSimpleArray(String name, JSONTypes expectedType) throws IOException {
-        Vector<String> array = new Vector<String>();
+        ArrayList<String> array = new ArrayList<String>();
         @SuppressWarnings("unchecked")
-        Vector<JSONValue> arrayElements = ((Vector<JSONValue>) getProperty(name, JSONTypes.ARRAY).value);
+        ArrayList<JSONValue> arrayElements = ((ArrayList<JSONValue>) getProperty(name, JSONTypes.ARRAY).value);
         for (JSONValue value : arrayElements) {
             JSONTypes.compatibilityTest(expectedType, value);
             value.readFlag = true;
@@ -467,10 +477,10 @@ public class JSONObjectReader implements Serializable, Cloneable {
     /**
      * Read an array of base64url encoded JSON strings.
      * @param name Property
-     * @return Vector holding arrays of bytes
+     * @return ArrayList holding arrays of bytes
      * @throws IOException &nbsp;
      */
-    public Vector<byte[]> getBinaryArray(String name) throws IOException {
+    public ArrayList<byte[]> getBinaryArray(String name) throws IOException {
         return getArray(name).getBinaryArray();
     }
 
@@ -518,13 +528,49 @@ public class JSONObjectReader implements Serializable, Cloneable {
         return getSignature(JSONObjectWriter.SIGNATURE_DEFAULT_LABEL_JSON, options);
     }
 
-    public JSONSignatureDecoder getSignature(String signatureLabel, JSONCryptoHelper.Options options) throws IOException {
-        options.encryptionMode(false);
+    public JSONSignatureDecoder getSignature(String signatureLabel, 
+                                             JSONCryptoHelper.Options options) throws IOException {
+        options.initializeOperation(false);
         JSONObjectReader signatureObject = getObject(signatureLabel);
         if (signatureObject.hasProperty(JSONCryptoHelper.SIGNERS_JSON)) {
             throw new IOException("Use \"getMultiSignature()\" for this object");
         }
+        if (signatureObject.hasProperty(JSONCryptoHelper.CHAIN_JSON)) {
+            throw new IOException("Use \"getSignatureChain()\" for this object");
+        }
         return new JSONSignatureDecoder(this, signatureObject, signatureObject, options);
+    }
+    
+    ArrayList<JSONSignatureDecoder> getSignatureArray(String signatureLabel, 
+                                                      JSONCryptoHelper.Options options,
+                                                      boolean chained) throws IOException {
+        options.initializeOperation(false);
+        JSONObjectReader outerSignatureObject = getObject(signatureLabel);
+        JSONArrayReader arrayReader = 
+                outerSignatureObject.getArray(chained ?
+                        JSONCryptoHelper.CHAIN_JSON : JSONCryptoHelper.SIGNERS_JSON);
+        @SuppressWarnings("unchecked")
+        ArrayList<JSONValue> save = (ArrayList<JSONValue>) arrayReader.array.clone();
+        ArrayList<JSONSignatureDecoder> signatures = new ArrayList<JSONSignatureDecoder>();
+        ArrayList<JSONObjectReader> signatureObjects = new ArrayList<JSONObjectReader>();
+        do {
+            signatureObjects.add(arrayReader.getObject());
+        } while(arrayReader.hasMore());
+        arrayReader.array.clear();
+        for (JSONObjectReader innerSignatureObject : signatureObjects) {
+            if (!chained) {
+                arrayReader.array.clear();
+            }
+            arrayReader.array.add(new JSONValue(JSONTypes.OBJECT,
+                                                innerSignatureObject.root));
+            signatures.add(new JSONSignatureDecoder(this, 
+                                                    innerSignatureObject,
+                                                    outerSignatureObject,
+                                                    options));
+        }
+        arrayReader.array.clear();
+        arrayReader.array.addAll(save);
+        return signatures;
     }
 
     /**
@@ -535,29 +581,34 @@ public class JSONObjectReader implements Serializable, Cloneable {
      * @return List with signature objects
      * @throws IOException &nbsp;
      */
-    public Vector<JSONSignatureDecoder> getMultiSignature(JSONCryptoHelper.Options options) throws IOException {
+    public ArrayList<JSONSignatureDecoder> getMultiSignature(JSONCryptoHelper.Options options)
+    throws IOException {
         return getMultiSignature(JSONObjectWriter.SIGNATURE_DEFAULT_LABEL_JSON, options);
     }
     
-    public Vector<JSONSignatureDecoder> getMultiSignature(String signatureLabel, JSONCryptoHelper.Options options) throws IOException {
-        options.encryptionMode(false);
-        JSONObjectReader outerSignatureObject = getObject(signatureLabel);
-        JSONArrayReader arrayReader = outerSignatureObject.getArray(JSONCryptoHelper.SIGNERS_JSON);
-        @SuppressWarnings("unchecked")
-        Vector<JSONValue> save = (Vector<JSONValue>) arrayReader.array.clone();
-        Vector<JSONSignatureDecoder> signatures = new Vector<JSONSignatureDecoder>();
-        Vector<JSONObjectReader> signatureObjects = new Vector<JSONObjectReader>();
-        do {
-            signatureObjects.add(arrayReader.getObject());
-        } while(arrayReader.hasMore());
-        for (JSONObjectReader innerSignatureObject : signatureObjects) {
-            arrayReader.array.clear();
-            arrayReader.array.add(new JSONValue(JSONTypes.OBJECT, innerSignatureObject.root));
-            signatures.add(new JSONSignatureDecoder(this, innerSignatureObject, outerSignatureObject, options));
-        }
-        arrayReader.array.clear();
-        arrayReader.array.addAll(save);
-        return signatures;
+    public ArrayList<JSONSignatureDecoder> getMultiSignature(String signatureLabel, 
+                                                             JSONCryptoHelper.Options options)
+    throws IOException {
+        return getSignatureArray(signatureLabel, options, false);
+    }
+
+    /**
+     * Read and decode a
+     * <a href="https://cyberphone.github.io/doc/security/jsf.html" target="_blank"><b>JSF</b></a>
+     * chained-signature object.
+     * @param options Allowed/expected options
+     * @return List with signature objects
+     * @throws IOException &nbsp;
+     */
+    public ArrayList<JSONSignatureDecoder> getSignatureChain(JSONCryptoHelper.Options options) 
+    throws IOException {
+        return getSignatureChain(JSONObjectWriter.SIGNATURE_DEFAULT_LABEL_JSON, options);
+    }
+    
+    public ArrayList<JSONSignatureDecoder> getSignatureChain(String signatureLabel, 
+                                                             JSONCryptoHelper.Options options)
+    throws IOException {
+        return getSignatureArray(signatureLabel, options, true);
     }
 
     /**
@@ -592,14 +643,16 @@ public class JSONObjectReader implements Serializable, Cloneable {
      * Read and decode a public key in
      * <a href="https://cyberphone.github.io/doc/security/jsf.html" target="_blank"><b>JSF</b></a>
      * (<a href="https://tools.ietf.org/html/rfc7517" target="_blank"><b>JWK</b></a>) format.
-     * Note: this method assumes that the current object only holds the actual public key structure (no property).
+     * Note: this method assumes that the current object only holds the actual 
+     * public key structure (no property).
      * 
      * @param algorithmPreferences JOSE or SKS notation expected
      * @return Java <code>PublicKey</code>
      * @throws IOException &nbsp;
      * @see org.webpki.json.JSONObjectWriter#createCorePublicKey(PublicKey,AlgorithmPreferences)
      */
-    public PublicKey getCorePublicKey(AlgorithmPreferences algorithmPreferences) throws IOException {
+    public PublicKey getCorePublicKey(AlgorithmPreferences algorithmPreferences) 
+    throws IOException {
         clearReadFlags();
         PublicKey publicKey = JSONSignatureDecoder.decodePublicKey(this, algorithmPreferences);
         checkForUnread();
@@ -607,7 +660,8 @@ public class JSONObjectReader implements Serializable, Cloneable {
     }
 
     /**
-     * Read a public and private key in <a href="https://tools.ietf.org/html/rfc7517" target="_blank"><b>JWK</b></a> format.<p>
+     * Read a public and private key in 
+     * <a href="https://tools.ietf.org/html/rfc7517" target="_blank"><b>JWK</b></a> format.<p>
      * Note: this method assumes that the current object only holds a JWK key structure.</p>
      * 
      * @param algorithmPreferences JOSE or SKS notation expected
@@ -617,13 +671,15 @@ public class JSONObjectReader implements Serializable, Cloneable {
     public KeyPair getKeyPair(AlgorithmPreferences algorithmPreferences) throws IOException {
         clearReadFlags();
         PublicKey publicKey = JSONSignatureDecoder.decodePublicKey(this, algorithmPreferences);
-        KeyPair keyPair = new KeyPair(publicKey, JSONSignatureDecoder.decodePrivateKey(this, publicKey));
+        KeyPair keyPair =
+                new KeyPair(publicKey, JSONSignatureDecoder.decodePrivateKey(this, publicKey));
         checkForUnread();
         return keyPair;
     }
 
     /**
-     * Read a public and private key in <a href="https://tools.ietf.org/html/rfc7517" target="_blank"><b>JWK</b></a> format.<p>
+     * Read a public and private key in 
+     * <a href="https://tools.ietf.org/html/rfc7517" target="_blank"><b>JWK</b></a> format.<p>
      * Note: this method assumes that the current object only holds a JWK key structure.</p>
      * This method is equivalent to <code>getKeyPair(AlgorithmPreferences.JOSE)</code>.
      * 
@@ -646,14 +702,14 @@ public class JSONObjectReader implements Serializable, Cloneable {
      * @see org.webpki.json.JSONCryptoHelper.Options
      */
     public JSONDecryptionDecoder getEncryptionObject(JSONCryptoHelper.Options options) throws IOException {
-        options.encryptionMode(true);
+        options.initializeOperation(true);
         if (hasProperty(JSONCryptoHelper.RECIPIENTS_JSON)) {
             throw new IOException("Please use \"getEncryptionObjects()\" for multiple encryption objects");
         }
-        boolean keyEncryption = hasProperty(JSONCryptoHelper.ENCRYPTED_KEY_JSON);
+        boolean keyEncryption = hasProperty(JSONCryptoHelper.KEY_ENCRYPTION_JSON);
         JSONDecryptionDecoder.Holder holder = new JSONDecryptionDecoder.Holder(options, this, keyEncryption);
         return new JSONDecryptionDecoder(holder, 
-                                         keyEncryption ? getObject(JSONCryptoHelper.ENCRYPTED_KEY_JSON) : this,
+                                         keyEncryption ? getObject(JSONCryptoHelper.KEY_ENCRYPTION_JSON) : this,
                                          true);
     }
 
@@ -668,11 +724,12 @@ public class JSONObjectReader implements Serializable, Cloneable {
      * @see org.webpki.json.JSONObjectWriter#createEncryptionObject(byte[],DataEncryptionAlgorithms,JSONEncrypter)
      * @see org.webpki.json.JSONCryptoHelper.Options
      */
-    public Vector<JSONDecryptionDecoder> getEncryptionObjects(JSONCryptoHelper.Options options) throws IOException {
-        options.encryptionMode(true);
+    public ArrayList<JSONDecryptionDecoder> getEncryptionObjects(JSONCryptoHelper.Options options)
+    throws IOException {
+        options.initializeOperation(true);
         JSONDecryptionDecoder.Holder holder = new JSONDecryptionDecoder.Holder(options, this, true);
         JSONArrayReader recipientObjects = getArray(JSONCryptoHelper.RECIPIENTS_JSON);
-        Vector<JSONDecryptionDecoder> recipients = new Vector<JSONDecryptionDecoder>();
+        ArrayList<JSONDecryptionDecoder> recipients = new ArrayList<JSONDecryptionDecoder>();
         do {
             JSONDecryptionDecoder decoder = new JSONDecryptionDecoder(holder, 
                                                                       recipientObjects.getObject(),

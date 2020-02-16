@@ -27,13 +27,12 @@ import java.security.cert.X509Certificate;
 import java.security.interfaces.ECPublicKey;
 
 import java.util.LinkedHashMap;
-import java.util.Vector;
+import java.util.List;
 
 ////////////////////////////////////////////////////////////////////////////////////
 // JEF is effectively a "remake" of of JWE.  Why a remake?  Because the           //
 // encryption system (naturally) borrows heavily from JSF including clear text    //
-// header information and using the JCS based normalization scheme for creating   //
-// authenticated data.                                                            //
+// header information and using JCS for creating authenticated data.              //                                                            //
 //                                                                                //
 // The supported algorithms and JWK attributes are though fully JOSE compatible.  //
 ////////////////////////////////////////////////////////////////////////////////////
@@ -114,8 +113,6 @@ public class JSONDecryptionDecoder {
 
     private byte[] encryptedKeyData;  // For RSA and ECDH+ only
 
-    private boolean sharedSecretMode;
-
     private Holder holder;
 
     public PublicKey getPublicKey() {
@@ -127,14 +124,13 @@ public class JSONDecryptionDecoder {
     }
 
     public boolean isSharedSecret() {
-        return sharedSecretMode;
+        return !holder.keyEncryption;
     }
 
-    public JSONDecryptionDecoder require(boolean publicKeyEncryption) throws IOException {
-        if (publicKeyEncryption == sharedSecretMode) {
-            throw new IOException((publicKeyEncryption ? "Missing" : "Unexpected") + " public key");
+    void checkEncryptionConstruct(boolean keyEncryption) throws IOException {
+        if (keyEncryption == isSharedSecret()) {
+            throw new IOException((keyEncryption ? "Missing" : "Unexpected") + " key encryption");
         }
-        return this;
     }
 
     public String getKeyId() {
@@ -160,38 +156,38 @@ public class JSONDecryptionDecoder {
                           JSONObjectReader encryptionObject,
                           boolean last) throws IOException {
         this.holder = holder;
+        
+        checkEncryptionConstruct(holder.options.publicKeyOption != 
+                                 JSONCryptoHelper.PUBLIC_KEY_OPTIONS.PLAIN_ENCRYPTION);
 
         // Collect keyId if such are permitted
         keyId = holder.options.getKeyId(encryptionObject);
 
         // Are we using a key encryption scheme?
         if (holder.keyEncryption)  {
-            keyEncryptionAlgorithm = KeyEncryptionAlgorithms
-                        .getAlgorithmFromId(encryptionObject.getString(JSONCryptoHelper.ALGORITHM_JSON));
-            if (keyEncryptionAlgorithm == null) {
-                throw new IOException("Missing \"" + JSONCryptoHelper.ALGORITHM_JSON  + "\"");
-            }
-            if (holder.options.requirePublicKeyInfo) {
-                if (encryptionObject.hasProperty(JSONCryptoHelper.CERTIFICATE_PATH_JSON)) {
-                    certificatePath = encryptionObject.getCertificatePath();
-                } else if (encryptionObject.hasProperty(JSONCryptoHelper.PUBLIC_KEY_JSON)) {
-                    publicKey = encryptionObject.getPublicKey(holder.options.algorithmPreferences);
-                } else {
-                    throw new IOException("Missing key information");
-                }
+            keyEncryptionAlgorithm = KeyEncryptionAlgorithms.getAlgorithmFromId(
+                    encryptionObject.getString(JSONCryptoHelper.ALGORITHM_JSON));
+
+            if (encryptionObject.hasProperty(JSONCryptoHelper.CERTIFICATE_PATH_JSON)) {
+                certificatePath = encryptionObject.getCertificatePath();
+                holder.options.publicKeyOption.checkCertificatePath();
+            } else if (encryptionObject.hasProperty(JSONCryptoHelper.PUBLIC_KEY_JSON)) {
+                publicKey = encryptionObject.getPublicKey(holder.options.algorithmPreferences);
+                holder.options.publicKeyOption.checkPublicKey(keyId);
+            } else {
+                holder.options.publicKeyOption.checkMissingKey(keyId);
             }
 
             if (keyEncryptionAlgorithm.isKeyWrap()) {
-                encryptedKeyData = encryptionObject.getBinary(JSONCryptoHelper.CIPHER_TEXT_JSON);
+                encryptedKeyData = encryptionObject.getBinary(JSONCryptoHelper.ENCRYPTED_KEY_JSON);
             }
+
             if (!keyEncryptionAlgorithm.isRsa()) {
                 ephemeralPublicKey =
                         (ECPublicKey) encryptionObject
                             .getObject(JSONCryptoHelper.EPHEMERAL_KEY_JSON)
                                 .getCorePublicKey(holder.options.algorithmPreferences);
             }
-        } else {
-            sharedSecretMode = true;
         }
 
         // An encryption object may also hold "extension" data
@@ -221,7 +217,7 @@ public class JSONDecryptionDecoder {
      */
     public byte[] getDecryptedData(byte[] dataDecryptionKey) throws IOException, 
                                                                     GeneralSecurityException {
-        require(false);
+        checkEncryptionConstruct(false);
         return localDecrypt(dataDecryptionKey);
     }
 
@@ -234,7 +230,7 @@ public class JSONDecryptionDecoder {
      */
     public byte[] getDecryptedData(PrivateKey privateKey) throws IOException, 
                                                                  GeneralSecurityException {
-        require(true);
+        checkEncryptionConstruct(true);
         return localDecrypt(keyEncryptionAlgorithm.isRsa() ?
                 EncryptionCore.rsaDecryptKey(keyEncryptionAlgorithm,
                                              encryptedKeyData,
@@ -254,7 +250,7 @@ public class JSONDecryptionDecoder {
      * @throws IOException &nbsp;
      * @throws GeneralSecurityException &nbsp;
      */
-    public byte[] getDecryptedData(Vector<DecryptionKeyHolder> decryptionKeys)
+    public byte[] getDecryptedData(List<DecryptionKeyHolder> decryptionKeys)
     throws IOException, GeneralSecurityException {
         boolean notFound = true;
         for (DecryptionKeyHolder decryptionKey : decryptionKeys) {
