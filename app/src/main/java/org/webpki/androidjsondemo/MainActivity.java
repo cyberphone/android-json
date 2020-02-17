@@ -16,14 +16,23 @@
  */
 package org.webpki.androidjsondemo;
 
-import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 
-import android.util.Base64;
+import android.util.Log;
 
 import android.webkit.JavascriptInterface;
+import android.webkit.WebResourceResponse;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
+import android.webkit.WebViewClient;
+import android.webkit.WebResourceRequest;
+
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+
+import androidx.webkit.WebViewAssetLoader;
+
+import androidx.appcompat.app.AppCompatActivity;
 
 import org.webpki.crypto.MACAlgorithms;
 import org.webpki.crypto.AlgorithmPreferences;
@@ -46,6 +55,7 @@ import org.webpki.json.KeyEncryptionAlgorithms;
 
 import org.webpki.util.Base64URL;
 
+import java.io.ByteArrayInputStream;
 import java.security.PublicKey;
 import java.security.KeyPair;
 
@@ -79,22 +89,45 @@ public class MainActivity extends AppCompatActivity {
 
     WebView webView;
 
+    static WebViewAssetLoader.PathHandler ph = new WebViewAssetLoader.PathHandler() {
+        @Nullable
+        @Override
+        public WebResourceResponse handle(@NonNull String path) {
+            return null;
+        }
+    };
+
+    byte[] currentHtml;
+
+    final WebViewAssetLoader webLoader = new WebViewAssetLoader.Builder()
+            .addPathHandler("/main/", new WebViewAssetLoader.PathHandler() {
+                @Nullable
+                @Override
+                public WebResourceResponse handle(@NonNull String path) {
+                    return new WebResourceResponse("text/html",
+                                                   "utf-8",
+                                                   new ByteArrayInputStream(currentHtml));
+                }
+            })
+        .build();
+
     void loadHtml(final String javaScript, final String header, final String body) {
+        try {
+            currentHtml = new StringBuilder(HTML_HEADER)
+                    .append(javaScript)
+                    .append(HTML_BODY)
+                    .append(header)
+                    .append("</h3>")
+                    .append(body)
+                    .append("</body></html>").toString().getBytes("utf-8");
+        } catch (Exception e) {
+            Log.e("HTM", e.getMessage());
+            return;
+        }
         runOnUiThread(new Runnable() {
             @Override
             public void run() {
-                webView.loadUrl("about:blank");
-                try {
-                    String html = Base64.encodeToString(new StringBuilder(HTML_HEADER)
-                                    .append(javaScript)
-                                    .append(HTML_BODY)
-                                    .append(header)
-                                    .append("</h3>")
-                                    .append(body)
-                                    .append("</body></html>").toString().getBytes("utf-8"), Base64.NO_WRAP);
-                    webView.loadData(html, "text/html; charset=utf-8", "base64");
-                } catch (Exception e) {
-                }
+                webView.loadUrl("https://appassets.androidplatform.net/main/");
             }
         });
     }
@@ -140,6 +173,13 @@ public class MainActivity extends AppCompatActivity {
         WebSettings webSettings = webView.getSettings();
         webSettings.setJavaScriptEnabled(true);
         webView.addJavascriptInterface (this, "WebPKI");
+        webView.setWebViewClient(new WebViewClient() {
+            @Override
+            public WebResourceResponse shouldInterceptRequest(WebView view,
+                                                              WebResourceRequest request) {
+                return webLoader.shouldInterceptRequest(request.getUrl());
+            }
+        });
         homeScreen();
         String version = "?";
         try {
