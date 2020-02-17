@@ -4,8 +4,9 @@ import android.security.keystore.KeyGenParameterSpec;
 import android.security.keystore.KeyProperties;
 
 import android.security.keystore.KeyProtection;
-import android.support.test.InstrumentationRegistry;
-import android.support.test.runner.AndroidJUnit4;
+
+import androidx.test.ext.junit.runners.AndroidJUnit4;
+import androidx.test.platform.app.InstrumentationRegistry;
 
 import android.util.Log;
 
@@ -61,10 +62,9 @@ public class InstrumentedTest {
 
     Vector<JSONDecryptionDecoder.DecryptionKeyHolder> keys;
 
-
     @BeforeClass
     static public void initialize() throws Exception {
-        new RawReader(InstrumentationRegistry.getTargetContext());
+        new RawReader(InstrumentationRegistry.getInstrumentation().getTargetContext());
     }
 
     void decrypt(int resource, boolean inLineKey) throws Exception {
