@@ -1,5 +1,5 @@
 /*
- *  Copyright 2006-2018 WebPKI.org (http://webpki.org).
+ *  Copyright 2006-2020 WebPKI.org (http://webpki.org).
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -118,7 +118,8 @@ public enum AsymSignatureAlgorithms implements SignatureAlgorithms {
 
 
     public static AsymSignatureAlgorithms getAlgorithmFromId(String algorithmId,
-                                                             AlgorithmPreferences algorithmPreferences) throws IOException {
+                                                             AlgorithmPreferences algorithmPreferences)
+    throws IOException {
         for (AsymSignatureAlgorithms alg : AsymSignatureAlgorithms.values()) {
             if (algorithmId.equals(alg.sksName)) {
                 if (algorithmPreferences == AlgorithmPreferences.JOSE) {

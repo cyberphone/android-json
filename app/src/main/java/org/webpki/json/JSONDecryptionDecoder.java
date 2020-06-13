@@ -1,5 +1,5 @@
 /*
- *  Copyright 2006-2018 WebPKI.org (http://webpki.org).
+ *  Copyright 2006-2020 WebPKI.org (http://webpki.org).
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -60,46 +60,46 @@ public class JSONDecryptionDecoder {
         JSONObjectReader globalEncryptionObject;
 
         Holder (JSONCryptoHelper.Options options, 
-                JSONObjectReader encryptionObject,
+                JSONObjectReader globalEncryptionObject,
                 boolean keyEncryption) throws IOException {
-            encryptionObject.clearReadFlags();
+            globalEncryptionObject.clearReadFlags();
             this.options = options;
-            this.globalEncryptionObject = encryptionObject;
+            this.globalEncryptionObject = globalEncryptionObject;
             this.keyEncryption = keyEncryption;
 
-            ///////////////////////////////////////////////////////////////////////////////////
-            // Begin JEF/JCS normalization                                                   //
-            //                                                                               //
-            // 1. Make a shallow copy of the encryption object property list                 //
-            LinkedHashMap<String, JSONValue> savedProperties =                               //
-                    new LinkedHashMap<String, JSONValue>(encryptionObject.root.properties);  //
-            //                                                                               //
-            // 2. Hide these properties from the serializer..                                //
-            encryptionObject.root.properties.remove(JSONCryptoHelper.IV_JSON);               //
-            encryptionObject.root.properties.remove(JSONCryptoHelper.TAG_JSON);              //
-            encryptionObject.root.properties.remove(JSONCryptoHelper.CIPHER_TEXT_JSON);      //
-            //                                                                               //
-            // 3. Canonicalize                                                               //
-            authenticatedData =                                                              //
-                    encryptionObject.serializeToBytes(JSONOutputFormats.CANONICALIZED);      //
-            //                                                                               //
-            // 4. Restore encryption object property list                                    //
-            encryptionObject.root.properties = savedProperties;                              //
-            //                                                                               //
-            // End JEF/JCS normalization                                                     //
-            ///////////////////////////////////////////////////////////////////////////////////
+            ////////////////////////////////////////////////////////////////////////////////////
+            // Begin JEF/JCS normalization                                                    //
+            //                                                                                //
+            // 1. Make a shallow copy of the encryption object property list                  //
+            LinkedHashMap<String, JSONValue> savedProperties =                                //
+                    new LinkedHashMap<>(globalEncryptionObject.root.properties);              //
+            //                                                                                //
+            // 2. Hide these properties from the serializer..                                 //
+            globalEncryptionObject.root.properties.remove(JSONCryptoHelper.IV_JSON);          //
+            globalEncryptionObject.root.properties.remove(JSONCryptoHelper.TAG_JSON);         //
+            globalEncryptionObject.root.properties.remove(JSONCryptoHelper.CIPHER_TEXT_JSON); //
+            //                                                                                //
+            // 3. Canonicalize                                                                //
+            authenticatedData =                                                               //
+                    globalEncryptionObject.serializeToBytes(JSONOutputFormats.CANONICALIZED); //
+            //                                                                                //
+            // 4. Restore encryption object property list                                     //
+            globalEncryptionObject.root.properties = savedProperties;                         //
+            //                                                                                //
+            // End JEF/JCS normalization                                                      //
+            ////////////////////////////////////////////////////////////////////////////////////
 
             // Collect mandatory elements
             dataEncryptionAlgorithm = DataEncryptionAlgorithms
-                    .getAlgorithmFromId(encryptionObject.getString(JSONCryptoHelper.ALGORITHM_JSON));
-            iv = encryptionObject.getBinary(JSONCryptoHelper.IV_JSON);
-            tag = encryptionObject.getBinary(JSONCryptoHelper.TAG_JSON);
-            encryptedData = encryptionObject.getBinary(JSONCryptoHelper.CIPHER_TEXT_JSON);
+                    .getAlgorithmFromId(globalEncryptionObject.getString(
+                            JSONCryptoHelper.ALGORITHM_JSON));
+            iv = globalEncryptionObject.getBinary(JSONCryptoHelper.IV_JSON);
+            tag = globalEncryptionObject.getBinary(JSONCryptoHelper.TAG_JSON);
+            encryptedData = globalEncryptionObject.getBinary(JSONCryptoHelper.CIPHER_TEXT_JSON);
         }
     }
 
-    LinkedHashMap<String,JSONCryptoHelper.Extension> extensions = 
-            new LinkedHashMap<String,JSONCryptoHelper.Extension>();
+    LinkedHashMap<String,JSONCryptoHelper.Extension> extensions = new LinkedHashMap<>();
 
     private PublicKey publicKey;
     
@@ -143,6 +143,10 @@ public class JSONDecryptionDecoder {
 
     public KeyEncryptionAlgorithms getKeyEncryptionAlgorithm() {
         return keyEncryptionAlgorithm;
+    }
+
+    public JSONObjectReader getEncryptionObject() {
+        return holder.globalEncryptionObject;
     }
 
     /**
@@ -262,7 +266,8 @@ public class JSONDecryptionDecoder {
                 }
             }
         }
-        throw new IOException(notFound ? "No matching key found" : "No matching key+algorithm found");
+        throw new IOException(notFound ? 
+               "No matching key found" : "No matching key+algorithm found");
     }
 
     /**

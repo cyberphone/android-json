@@ -1,5 +1,5 @@
 /*
- *  Copyright 2006-2018 WebPKI.org (http://webpki.org).
+ *  Copyright 2006-2020 WebPKI.org (http://webpki.org).
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -57,7 +57,7 @@ public class CertificateUtil {
     }
 
     public static X509Certificate[] makeCertificatePath(List<byte[]> certificateBlobs) throws IOException {
-        ArrayList<X509Certificate> certificates = new ArrayList<X509Certificate>();
+        ArrayList<X509Certificate> certificates = new ArrayList<>();
         for (byte[] certificateBlob : certificateBlobs) {
             try {
                 CertificateFactory cf = CertificateFactory.getInstance("X.509");

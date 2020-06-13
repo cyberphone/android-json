@@ -1,5 +1,5 @@
 /*
- *  Copyright 2006-2018 WebPKI.org (http://webpki.org).
+ *  Copyright 2006-2020 WebPKI.org (http://webpki.org).
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -127,7 +127,7 @@ public class JSONArrayReader implements Serializable {
     }
 
     public boolean getBoolean() throws IOException {
-        return new Boolean((String) getNextElement(JSONTypes.BOOLEAN));
+        return Boolean.valueOf((String) getNextElement(JSONTypes.BOOLEAN));
     }
 
     public boolean getIfNULL() throws IOException {
@@ -157,7 +157,7 @@ public class JSONArrayReader implements Serializable {
     }
 
     public ArrayList<byte[]> getBinaryArray() throws IOException {
-        ArrayList<byte[]> blobs = new ArrayList<byte[]>();
+        ArrayList<byte[]> blobs = new ArrayList<>();
         do {
             blobs.add(getBinary());
         } while (hasMore());
@@ -165,7 +165,7 @@ public class JSONArrayReader implements Serializable {
     }
 
     public X509Certificate[] getCertificatePath() throws IOException {
-        ArrayList<byte[]> blobs = new ArrayList<byte[]>();
+        ArrayList<byte[]> blobs = new ArrayList<>();
         do {
             blobs.add(Base64URL.decode(getString()));
         } while (hasMore());

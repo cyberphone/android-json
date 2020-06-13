@@ -1,5 +1,5 @@
 /*
- *  Copyright 2006-2018 WebPKI.org (http://webpki.org).
+ *  Copyright 2006-2020 WebPKI.org (http://webpki.org).
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -23,16 +23,20 @@ import java.io.IOException;
  */
 public interface CryptoAlgorithms {
 
-    public boolean isMandatorySksAlgorithm();
+    boolean isMandatorySksAlgorithm();
 
-    public String getAlgorithmId(AlgorithmPreferences algorithmPreferences) throws IOException;
+    String getAlgorithmId(AlgorithmPreferences algorithmPreferences) throws IOException;
 
-    public String getOid();
+    default String getJoseAlgorithmId() throws IOException {
+        return getAlgorithmId(AlgorithmPreferences.JOSE);
+    }
 
-    public String getJceName();
+    String getOid();
 
-    public boolean isSymmetric();
+    String getJceName();
+
+    boolean isSymmetric();
     
-    public boolean isDeprecated();
+    boolean isDeprecated();
 
 }
