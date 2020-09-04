@@ -26,12 +26,13 @@ import java.security.PublicKey;
 import java.security.Signature;
 
 import java.security.interfaces.ECKey;
-import java.security.interfaces.RSAKey;
 
 import java.security.spec.ECParameterSpec;
 
 /**
  * Wrapper over java.security.Signature
+ *
+ * Source configured for Android. 
  */
 public class SignatureWrapper {
 
@@ -133,15 +134,16 @@ public class SignatureWrapper {
     }
 
     Signature instance;
-    boolean rsaFlag;
+    boolean unmodifiedSignature;
     ECParameterSpec ecParameters;
 
     private SignatureWrapper(AsymSignatureAlgorithms algorithm, String provider, Key key) throws GeneralSecurityException, IOException {
-        instance = provider == null ? Signature.getInstance(algorithm.getJceName())
-                                                    : 
-                                      Signature.getInstance(algorithm.getJceName(), provider);
-        rsaFlag = key instanceof RSAKey;
-        if (!rsaFlag) {
+        instance = provider == null ? 
+                Signature.getInstance(algorithm.getJceName())
+                                    :
+                Signature.getInstance(algorithm.getJceName(), provider);
+        unmodifiedSignature = !algorithm.isEcdsa();
+        if (!unmodifiedSignature) {
             ecParameters = ((ECKey) key).getParams();
         }
     }
@@ -190,12 +192,12 @@ public class SignatureWrapper {
     }
 
     public boolean verify(byte[] signature) throws GeneralSecurityException, IOException {
-        return instance.verify(ecdsaDerEncoded || rsaFlag ?
+        return instance.verify(ecdsaDerEncoded || unmodifiedSignature ?
                 signature : SignatureWrapper.encodeDEREncodedECDSASignature(signature, ecParameters));
     }
 
     public byte[] sign() throws GeneralSecurityException, IOException {
-        return ecdsaDerEncoded || rsaFlag ?
+        return ecdsaDerEncoded || unmodifiedSignature ?
                 instance.sign() : SignatureWrapper.decodeDEREncodedECDSASignature(instance.sign(), ecParameters);
     }
 }

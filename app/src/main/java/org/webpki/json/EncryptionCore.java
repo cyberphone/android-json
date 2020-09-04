@@ -28,8 +28,9 @@ import java.security.PrivateKey;
 import java.security.PublicKey;
 import java.security.SecureRandom;
 
-import java.security.interfaces.ECPublicKey;
+import java.security.interfaces.ECKey;
 
+import java.security.spec.AlgorithmParameterSpec;
 import java.security.spec.ECGenParameterSpec;
 
 import javax.crypto.Cipher;
@@ -47,9 +48,10 @@ import org.webpki.util.ArrayUtil;
 
 /**
  * Core JEF (JSON Encryption Format) class.
- * Implements a subset of the RFC7516 (JWE) algorithms
+ * Implements a subset of the RFC 7516 (JWE) algorithms.
+ * 
+ * Source configured for Android. 
  */
-
 class EncryptionCore {
 
     /**
@@ -80,11 +82,11 @@ class EncryptionCore {
 
         private byte[] dataEncryptionKey;
         private byte[] encryptedKeyData;
-        private ECPublicKey ephemeralKey;
+        private PublicKey ephemeralKey;
 
         AsymmetricEncryptionResult(byte[] dataEncryptionKey,
                                    byte[] encryptedKeyData,
-                                   ECPublicKey ephemeralKey) {
+                                   PublicKey ephemeralKey) {
             this.dataEncryptionKey = dataEncryptionKey;
             this.encryptedKeyData = encryptedKeyData;
             this.ephemeralKey = ephemeralKey;
@@ -98,7 +100,7 @@ class EncryptionCore {
             return encryptedKeyData;
         }
 
-        ECPublicKey getEphemeralKey() {
+        PublicKey getEphemeralKey() {
             return ephemeralKey;
         }
     }
@@ -121,41 +123,12 @@ class EncryptionCore {
     static final String CONCAT_KDF_DIGEST_JCENAME = "SHA-256";
     static final int    CONCAT_KDF_DIGEST_LENGTH  = 32;
     
-    private static String aesProviderName;
-
-    /**
-     * Explicitly set provider for AES operations.
-     * @param providerName Name of provider
-     */
-    public static void setAesProvider(String providerName) {
-        aesProviderName = providerName;
-    }
-    
-    private static String ecProviderName;
-    
-    /**
-     * Explicitly set provider for EC operations.
-     * @param providerName Name of provider
-     */
-    public static void setEcProvider(String providerName) {
-        ecProviderName = providerName;
-    }
-
-    private static String rsaProviderName;
-    
-    /**
-     * Explicitly set provider for RSA operations.
-     * @param providerName Name of provider
-     */
-    public static void setRsaProvider(String providerName) {
-        rsaProviderName = providerName;
-    }
+    // RSA OAEP
+    static final String JOSE_RSA_OAEP_JCENAME     = "RSA/ECB/OAEPWithSHA-1AndMGF1Padding";
+    static final String JOSE_RSA_OAEP_256_JCENAME = "RSA/ECB/OAEPWithSHA-256AndMGF1Padding";
 
     private static Cipher getAesCipher(String algorithm) throws GeneralSecurityException {
-        return aesProviderName == null ? 
-            Cipher.getInstance(algorithm) 
-                                       : 
-            Cipher.getInstance(algorithm, aesProviderName);
+        return Cipher.getInstance(algorithm);
     }
 
     private static byte[] getTag(byte[] key,
@@ -312,11 +285,9 @@ class EncryptionCore {
             throw new GeneralSecurityException(
                     "Unsupported RSA algorithm: " + keyEncryptionAlgorithm);
         }
-        Cipher cipher = rsaProviderName == null ? 
-                Cipher.getInstance(keyEncryptionAlgorithm.jceName)
-                                                : 
-                Cipher.getInstance(keyEncryptionAlgorithm.jceName,
-                                   rsaProviderName);
+        String jceName = keyEncryptionAlgorithm == KeyEncryptionAlgorithms.JOSE_RSA_OAEP_ALG_ID ?
+                JOSE_RSA_OAEP_JCENAME : JOSE_RSA_OAEP_256_JCENAME;
+        Cipher cipher = Cipher.getInstance(jceName);
         cipher.init(mode, key);
         return cipher.doFinal(data);
     }
@@ -367,14 +338,11 @@ class EncryptionCore {
 
     private static byte[] coreKeyAgreement(KeyEncryptionAlgorithms keyEncryptionAlgorithm,
                                            DataEncryptionAlgorithms dataEncryptionAlgorithm,
-                                           ECPublicKey receivedPublicKey,
+                                           PublicKey receivedPublicKey,
                                            PrivateKey privateKey)
     throws GeneralSecurityException, IOException {
         // Begin by calculating Z (do the DH)
-        KeyAgreement keyAgreement = ecProviderName == null ?
-                KeyAgreement.getInstance(keyEncryptionAlgorithm.jceName)
-                                                           :
-                KeyAgreement.getInstance(keyEncryptionAlgorithm.jceName, ecProviderName);
+        KeyAgreement keyAgreement = KeyAgreement.getInstance("ECDH");
         keyAgreement.init(privateKey);
         keyAgreement.doPhase(receivedPublicKey, true);
         byte[] Z = keyAgreement.generateSecret();
@@ -429,7 +397,7 @@ class EncryptionCore {
      */
     public static byte[] receiverKeyAgreement(KeyEncryptionAlgorithms keyEncryptionAlgorithm,
                                               DataEncryptionAlgorithms dataEncryptionAlgorithm,
-                                              ECPublicKey receivedPublicKey,
+                                              PublicKey receivedPublicKey,
                                               PrivateKey privateKey,
                                               byte[] encryptedKeyData)
     throws GeneralSecurityException, IOException {
@@ -467,17 +435,14 @@ class EncryptionCore {
                                DataEncryptionAlgorithms dataEncryptionAlgorithm,
                                PublicKey staticKey) 
     throws IOException, GeneralSecurityException {
-        KeyPairGenerator generator = ecProviderName == null ?
-                             KeyPairGenerator.getInstance("EC") 
-                                                            : 
-                             KeyPairGenerator.getInstance("EC", ecProviderName);
-        ECGenParameterSpec eccgen = 
+        AlgorithmParameterSpec paramSpec = 
                 new ECGenParameterSpec(KeyAlgorithms.getKeyAlgorithm(staticKey).getJceName());
-        generator.initialize(eccgen, new SecureRandom());
+        KeyPairGenerator generator = KeyPairGenerator.getInstance("EC");
+        generator.initialize(paramSpec, new SecureRandom());
         KeyPair keyPair = generator.generateKeyPair();
         byte[] derivedKey = coreKeyAgreement(keyEncryptionAlgorithm,
                                              dataEncryptionAlgorithm,
-                                             (ECPublicKey) staticKey,
+                                             staticKey,
                                              keyPair.getPrivate());
         byte[] encryptedKeyData = null;
         if (keyEncryptionAlgorithm.keyWrap) {
@@ -488,6 +453,6 @@ class EncryptionCore {
         }
         return new AsymmetricEncryptionResult(derivedKey, 
                                               encryptedKeyData,
-                                              (ECPublicKey) keyPair.getPublic());
+                                              keyPair.getPublic());
     }
 }

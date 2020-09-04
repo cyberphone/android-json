@@ -28,15 +28,17 @@ import java.security.cert.CertificateFactory;
 
 import java.security.GeneralSecurityException;
 
-
-
+/**
+ * X509 related operations.
+ * 
+ * Source configured for the free-standing Android JSON library.
+ */
 public class CertificateUtil {
 
     private CertificateUtil() {}  // No instantiation please
 
-
-
-    public static X509Certificate[] checkCertificatePath(X509Certificate[] certificatePath) throws IOException {
+    public static X509Certificate[] checkCertificatePath(X509Certificate[] certificatePath) 
+    throws IOException {
         X509Certificate signedCertificate = certificatePath[0];
         int i = 0;
         while (++i < certificatePath.length) {
@@ -44,7 +46,8 @@ public class CertificateUtil {
             String issuer = signedCertificate.getIssuerX500Principal().getName();
             String subject = signerCertificate.getSubjectX500Principal().getName();
             if (!issuer.equals(subject)) {
-                throw new IOException("Path issuer order error, '" + issuer + "' versus '" + subject + "'");
+                throw new IOException("Path issuer order error, '" + 
+                                      issuer + "' versus '" + subject + "'");
             }
             try {
                 signedCertificate.verify(signerCertificate.getPublicKey());
@@ -56,15 +59,20 @@ public class CertificateUtil {
         return certificatePath;
     }
 
-    public static X509Certificate[] makeCertificatePath(List<byte[]> certificateBlobs) throws IOException {
+    public static X509Certificate getCertificateFromBlob(byte[] encoded) throws IOException {
+        try {
+            CertificateFactory cf = CertificateFactory.getInstance("X.509");
+            return (X509Certificate) cf.generateCertificate(new ByteArrayInputStream(encoded));
+        } catch (GeneralSecurityException e) {
+            throw new IOException(e);
+        }
+    }
+
+    public static X509Certificate[] makeCertificatePath(List<byte[]> certificateBlobs)
+    throws IOException {
         ArrayList<X509Certificate> certificates = new ArrayList<>();
         for (byte[] certificateBlob : certificateBlobs) {
-            try {
-                CertificateFactory cf = CertificateFactory.getInstance("X.509");
-                certificates.add((X509Certificate) cf.generateCertificate(new ByteArrayInputStream(certificateBlob)));
-            } catch (GeneralSecurityException e) {
-                throw new IOException(e);
-            }
+            certificates.add(getCertificateFromBlob(certificateBlob));
         }
         return checkCertificatePath(certificates.toArray(new X509Certificate[0]));
     }

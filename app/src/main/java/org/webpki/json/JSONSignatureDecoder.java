@@ -28,6 +28,7 @@ import java.security.PublicKey;
 
 import java.security.cert.X509Certificate;
 
+import java.security.interfaces.RSAKey;
 import java.security.interfaces.RSAPublicKey;
 
 import java.security.spec.ECPoint;
@@ -42,6 +43,7 @@ import java.util.LinkedHashSet;
 import org.webpki.crypto.AlgorithmPreferences;
 import org.webpki.crypto.SignatureAlgorithms;
 import org.webpki.crypto.AsymSignatureAlgorithms;
+import org.webpki.crypto.OkpSupport;
 import org.webpki.crypto.MACAlgorithms;
 import org.webpki.crypto.KeyAlgorithms;
 import org.webpki.crypto.SignatureWrapper;
@@ -53,7 +55,7 @@ public class JSONSignatureDecoder implements Serializable {
 
     private static final long serialVersionUID = 1L;
 
-    SignatureAlgorithms algorithm;
+    SignatureAlgorithms signatureAlgorithm;
 
     String algorithmString;
 
@@ -82,8 +84,8 @@ public class JSONSignatureDecoder implements Serializable {
         for (AsymSignatureAlgorithms alg : AsymSignatureAlgorithms.values()) {
             if (algorithmString.equals(alg.getAlgorithmId(AlgorithmPreferences.JOSE_ACCEPT_PREFER)) ||
                     algorithmString.equals(alg.getAlgorithmId(AlgorithmPreferences.SKS))) {
-                algorithm = AsymSignatureAlgorithms.getAlgorithmFromId(algorithmString, 
-                                                                       options.algorithmPreferences);
+                signatureAlgorithm = AsymSignatureAlgorithms.getAlgorithmFromId(algorithmString, 
+                                                                                options.algorithmPreferences);
                 if (innerSignatureObject.hasProperty(JSONCryptoHelper.CERTIFICATE_PATH_JSON)) {
                     certificatePath = innerSignatureObject.getCertificatePath();
                     options.publicKeyOption.checkCertificatePath();
@@ -96,8 +98,8 @@ public class JSONSignatureDecoder implements Serializable {
                 break;
             }
         }
-        if (algorithm == null) {
-            algorithm = MACAlgorithms.getAlgorithmFromId(algorithmString, options.algorithmPreferences);
+        if (signatureAlgorithm == null) {
+            signatureAlgorithm = MACAlgorithms.getAlgorithmFromId(algorithmString, options.algorithmPreferences);
         }
 
         options.getExtensions(innerSignatureObject, outerSignatureObject, extensions);
@@ -201,16 +203,27 @@ public class JSONSignatureDecoder implements Serializable {
                         new RSAPublicKeySpec(getCryptoBinary(rd, JSONCryptoHelper.N_JSON),
                                              getCryptoBinary(rd, JSONCryptoHelper.E_JSON)));
             } else if (type.equals(JSONCryptoHelper.EC_PUBLIC_KEY)) {
-                KeyAlgorithms ec = 
+                KeyAlgorithms keyAlgorithm = 
                         KeyAlgorithms.getKeyAlgorithmFromId(rd.getString(JSONCryptoHelper.CRV_JSON),
                                                             algorithmPreferences);
-                if (!ec.isECKey()) {
-                    throw new IOException("\"" + JSONCryptoHelper.CRV_JSON + "\" is not an EC type");
+                if (!keyAlgorithm.isEcdsa()) {
+                    throw new IOException("\"" + JSONCryptoHelper.CRV_JSON + 
+                                          "\" is not an EC type");
                 }
-                ECPoint w = new ECPoint(getCurvePoint(rd, JSONCryptoHelper.X_JSON, ec),
-                                        getCurvePoint(rd, JSONCryptoHelper.Y_JSON, ec));
+                ECPoint w = new ECPoint(getCurvePoint(rd, JSONCryptoHelper.X_JSON, keyAlgorithm),
+                                        getCurvePoint(rd, JSONCryptoHelper.Y_JSON, keyAlgorithm));
                 publicKey = KeyFactory.getInstance("EC")
-                        .generatePublic(new ECPublicKeySpec(w, ec.getECParameterSpec()));
+                        .generatePublic(new ECPublicKeySpec(w, keyAlgorithm.getECParameterSpec()));
+            } else if (type.equals(JSONCryptoHelper.OKP_PUBLIC_KEY)) {
+                KeyAlgorithms keyAlgorithm = 
+                        KeyAlgorithms.getKeyAlgorithmFromId(rd.getString(JSONCryptoHelper.CRV_JSON),
+                                                            algorithmPreferences);
+                if (!keyAlgorithm.isOkp()) {
+                    throw new IOException("\"" + JSONCryptoHelper.CRV_JSON + 
+                                          "\" is not a valid OKP type");
+                }
+                publicKey = OkpSupport.raw2PublicOkpKey(rd.getBinary(JSONCryptoHelper.X_JSON), 
+                                                        keyAlgorithm);
             } else {
                 throw new IOException("Unrecognized \"" + JSONCryptoHelper.KTY_JSON + "\": " + type);
             }
@@ -221,12 +234,12 @@ public class JSONSignatureDecoder implements Serializable {
     }
 
     void asymmetricSignatureVerification(PublicKey publicKey) throws IOException {
-        if (((AsymSignatureAlgorithms) algorithm).isRsa() != publicKey instanceof RSAPublicKey) {
+        if (((AsymSignatureAlgorithms) signatureAlgorithm).isRsa() != publicKey instanceof RSAKey) {
             throw new IOException("\"" + algorithmString + 
                                   "\" doesn't match key type: " + publicKey.getAlgorithm());
         }
         try {
-            if (!new SignatureWrapper((AsymSignatureAlgorithms) algorithm, publicKey)
+            if (!new SignatureWrapper((AsymSignatureAlgorithms) signatureAlgorithm, publicKey)
                          .update(normalizedData)
                          .verify(signatureValue)) {
                 throw new IOException("Bad signature for key: " + publicKey.toString());
@@ -241,7 +254,7 @@ public class JSONSignatureDecoder implements Serializable {
     }
 
     public SignatureAlgorithms getAlgorithm() {
-        return algorithm;
+        return signatureAlgorithm;
     }
 
     public JSONCryptoHelper.Extension getExtension(String name) {
@@ -277,7 +290,7 @@ public class JSONSignatureDecoder implements Serializable {
         if (certificatePath != null) {
             return JSONSignatureTypes.X509_CERTIFICATE;
         }
-        return algorithm instanceof AsymSignatureAlgorithms ? 
+        return signatureAlgorithm instanceof AsymSignatureAlgorithms ? 
                           JSONSignatureTypes.ASYMMETRIC_KEY : JSONSignatureTypes.SYMMETRIC_KEY;
     }
 
@@ -290,21 +303,25 @@ public class JSONSignatureDecoder implements Serializable {
                                        PublicKey publicKey) throws IOException {
         try {
             KeyAlgorithms keyAlgorithm = KeyAlgorithms.getKeyAlgorithm(publicKey);
-            if (keyAlgorithm.isECKey()) {
+            if (keyAlgorithm.isEcdsa()) {
                 return KeyFactory.getInstance("EC")
                         .generatePrivate(new ECPrivateKeySpec(getCurvePoint(rd, "d", keyAlgorithm),
                                                               keyAlgorithm.getECParameterSpec()));
             }
-            return KeyFactory.getInstance("RSA")
-                    .generatePrivate(
-                        new RSAPrivateCrtKeySpec(((RSAPublicKey) publicKey).getModulus(),
-                                                 ((RSAPublicKey) publicKey).getPublicExponent(),
-                                                 getCryptoBinary(rd, "d"),
-                                                 getCryptoBinary(rd, "p"),
-                                                 getCryptoBinary(rd, "q"),
-                                                 getCryptoBinary(rd, "dp"),
-                                                 getCryptoBinary(rd, "dq"),
-                                                 getCryptoBinary(rd, "qi")));
+            if (keyAlgorithm.isRsa()) {
+                return KeyFactory.getInstance("RSA")
+                        .generatePrivate(
+                            new RSAPrivateCrtKeySpec(((RSAPublicKey) publicKey).getModulus(),
+                                                     ((RSAPublicKey) publicKey).getPublicExponent(),
+                                                     getCryptoBinary(rd, "d"),
+                                                     getCryptoBinary(rd, "p"),
+                                                     getCryptoBinary(rd, "q"),
+                                                     getCryptoBinary(rd, "dp"),
+                                                     getCryptoBinary(rd, "dq"),
+                                                     getCryptoBinary(rd, "qi")));
+            }
+            return OkpSupport.raw2PrivateOkpKey(rd.getBinary("d"), 
+                                                KeyAlgorithms.getKeyAlgorithm(publicKey));
         } catch (GeneralSecurityException e) {
             throw new IOException(e);
         }
