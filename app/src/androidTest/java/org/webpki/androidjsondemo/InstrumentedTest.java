@@ -17,6 +17,9 @@ import org.junit.runner.RunWith;
 import org.webpki.crypto.AsymSignatureAlgorithms;
 import org.webpki.crypto.MACAlgorithms;
 
+import org.webpki.jose.jws.JwsAsymKeySigner;
+import org.webpki.jose.jws.JwsAsymSignatureValidator;
+import org.webpki.jose.jws.JwsDecoder;
 import org.webpki.json.JSONAsymKeySigner;
 import org.webpki.json.JSONAsymKeyVerifier;
 import org.webpki.json.JSONDecryptionDecoder;
@@ -154,6 +157,56 @@ public class InstrumentedTest {
 
     JSONObjectWriter getData() throws Exception {
         return new JSONObjectWriter(RawReader.getJSONResource(R.raw.json_data));
+    }
+
+    @Test
+    public void jws() throws Exception {
+        String jwsString = new JwsAsymKeySigner(RawReader.ecKeyPair.getPrivate(),
+                                                AsymSignatureAlgorithms.ECDSA_SHA256)
+            .createSignature(RawReader.dataToBeEncrypted, false);
+        new JwsAsymSignatureValidator(RawReader.ecKeyPair.getPublic())
+            .validateSignature(new JwsDecoder(jwsString), null);
+
+        jwsString = new JwsAsymKeySigner(RawReader.ecKeyPair.getPrivate(),
+            AsymSignatureAlgorithms.ECDSA_SHA256)
+            .setCertificatePath(RawReader.ecCertPath)
+            .createSignature(RawReader.dataToBeEncrypted, false);
+        new JwsAsymSignatureValidator(RawReader.ecKeyPair.getPublic())
+            .validateSignature(new JwsDecoder(jwsString), null);
+
+        jwsString = new JwsAsymKeySigner(RawReader.ecKeyPair.getPrivate(),
+            AsymSignatureAlgorithms.ECDSA_SHA256)
+            .setPublicKey(RawReader.ecKeyPair.getPublic())
+            .createSignature(RawReader.dataToBeEncrypted, false);
+        new JwsAsymSignatureValidator(RawReader.ecKeyPair.getPublic())
+            .validateSignature(new JwsDecoder(jwsString), null);
+
+        jwsString = new JwsAsymKeySigner(RawReader.ecKeyPair.getPrivate(),
+            AsymSignatureAlgorithms.ECDSA_SHA256)
+            .setPublicKey(RawReader.ecKeyPair.getPublic())
+            .createSignature(RawReader.dataToBeEncrypted, true);
+        new JwsAsymSignatureValidator(RawReader.ecKeyPair.getPublic())
+            .validateSignature(new JwsDecoder(jwsString), RawReader.dataToBeEncrypted);
+
+        try {
+            jwsString = new JwsAsymKeySigner(RawReader.ecKeyPair.getPrivate(),
+                AsymSignatureAlgorithms.ECDSA_SHA256)
+                .setPublicKey(RawReader.ecKeyPair.getPublic())
+                .createSignature(RawReader.dataToBeEncrypted, true);
+            new JwsAsymSignatureValidator(RawReader.ecKeyPair.getPublic())
+                .validateSignature(new JwsDecoder(jwsString), new byte[]{5,5});
+            fail("Bad data");
+        } catch (Exception e) { Log.i("XXX",e.getMessage());}
+
+        try {
+            jwsString = new JwsAsymKeySigner(RawReader.ecKeyPair.getPrivate(),
+                AsymSignatureAlgorithms.ECDSA_SHA256)
+                .setPublicKey(RawReader.rsaKeyPair.getPublic())
+                .createSignature(RawReader.dataToBeEncrypted, false);
+            new JwsAsymSignatureValidator(RawReader.ecKeyPair.getPublic())
+                .validateSignature(new JwsDecoder(jwsString), null);
+            fail("Bad data");
+        } catch (Exception e) { Log.i("XXX",e.getMessage());}
     }
 
     @Test
