@@ -20,6 +20,7 @@ import org.webpki.crypto.MACAlgorithms;
 import org.webpki.jose.jws.JwsAsymKeySigner;
 import org.webpki.jose.jws.JwsAsymSignatureValidator;
 import org.webpki.jose.jws.JwsDecoder;
+
 import org.webpki.json.JSONAsymKeySigner;
 import org.webpki.json.JSONAsymKeyVerifier;
 import org.webpki.json.JSONDecryptionDecoder;
@@ -188,6 +189,20 @@ public class InstrumentedTest {
         new JwsAsymSignatureValidator(RawReader.ecKeyPair.getPublic())
             .validateSignature(new JwsDecoder(jwsString), RawReader.dataToBeEncrypted);
 
+        jwsString = new JwsAsymKeySigner(RawReader.rsaKeyPair.getPrivate(),
+            AsymSignatureAlgorithms.RSA_SHA256)
+            .setPublicKey(RawReader.rsaKeyPair.getPublic())
+            .createSignature(RawReader.dataToBeEncrypted, true);
+        new JwsAsymSignatureValidator(RawReader.rsaKeyPair.getPublic())
+            .validateSignature(new JwsDecoder(jwsString), RawReader.dataToBeEncrypted);
+
+        jwsString = new JwsAsymKeySigner(RawReader.rsaKeyPair.getPrivate(),
+            AsymSignatureAlgorithms.RSAPSS_SHA512)
+            .setPublicKey(RawReader.rsaKeyPair.getPublic())
+            .createSignature(RawReader.dataToBeEncrypted, true);
+        new JwsAsymSignatureValidator(RawReader.rsaKeyPair.getPublic())
+            .validateSignature(new JwsDecoder(jwsString), RawReader.dataToBeEncrypted);
+
         try {
             jwsString = new JwsAsymKeySigner(RawReader.ecKeyPair.getPrivate(),
                 AsymSignatureAlgorithms.ECDSA_SHA256)
@@ -299,10 +314,10 @@ public class InstrumentedTest {
                 KeyProperties.PURPOSE_SIGN | KeyProperties.PURPOSE_VERIFY)
                 .setAlgorithmParameterSpec(new RSAKeyGenParameterSpec(2048,RSAKeyGenParameterSpec.F4))
                 .setDigests(KeyProperties.DIGEST_SHA256, KeyProperties.DIGEST_SHA512)
+                .setSignaturePaddings(KeyProperties.SIGNATURE_PADDING_RSA_PSS, KeyProperties.SIGNATURE_PADDING_RSA_PKCS1)
                 .setCertificateNotBefore(new Date(System.currentTimeMillis() - 600000L))
                 .setCertificateSubject(new X500Principal("CN=Android, SerialNumber=5678"))
-                .setSignaturePaddings(KeyProperties.SIGNATURE_PADDING_RSA_PKCS1)
-                .build());
+                 .build());
 
         KeyPair keyPair = kpg.generateKeyPair();
 
@@ -319,6 +334,16 @@ public class InstrumentedTest {
                 JSONParser.parse(signedData.serializeToBytes(JSONOutputFormats.PRETTY_PRINT));
         reader.getSignature(new JSONCryptoHelper.Options())
                 .verify(new JSONAsymKeyVerifier(keyPair.getPublic()));
+
+        signedData =
+            new JSONObjectWriter(RawReader.getJSONResource(R.raw.json_data)).setSignature(
+                new JSONAsymKeySigner(keyPair.getPrivate(), keyPair.getPublic(), null)
+            .setSignatureAlgorithm(AsymSignatureAlgorithms.RSAPSS_SHA512));
+        Log.i("SIGN", signedData.toString());
+        reader =
+            JSONParser.parse(signedData.serializeToBytes(JSONOutputFormats.PRETTY_PRINT));
+        reader.getSignature(new JSONCryptoHelper.Options())
+            .verify(new JSONAsymKeyVerifier(keyPair.getPublic()));
 
         kpg = KeyPairGenerator.getInstance(
                 KeyProperties.KEY_ALGORITHM_EC, ANDROID_KEYSTORE);
