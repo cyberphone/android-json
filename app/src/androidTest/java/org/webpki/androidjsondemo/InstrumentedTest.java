@@ -15,7 +15,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 
 import org.webpki.crypto.AsymSignatureAlgorithms;
-import org.webpki.crypto.MACAlgorithms;
+import org.webpki.crypto.HmacAlgorithms;
 
 import org.webpki.jose.jws.JwsAsymKeySigner;
 import org.webpki.jose.jws.JwsAsymSignatureValidator;
@@ -164,52 +164,52 @@ public class InstrumentedTest {
     public void jws() throws Exception {
         String jwsString = new JwsAsymKeySigner(RawReader.ecKeyPair.getPrivate(),
                                                 AsymSignatureAlgorithms.ECDSA_SHA256)
-            .createSignature(RawReader.dataToBeEncrypted, false);
+            .sign(RawReader.dataToBeEncrypted, false);
         new JwsAsymSignatureValidator(RawReader.ecKeyPair.getPublic())
-            .validateSignature(new JwsDecoder(jwsString), null);
+            .validate(new JwsDecoder(jwsString));
 
         jwsString = new JwsAsymKeySigner(RawReader.ecKeyPair.getPrivate(),
             AsymSignatureAlgorithms.ECDSA_SHA256)
             .setCertificatePath(RawReader.ecCertPath)
-            .createSignature(RawReader.dataToBeEncrypted, false);
+            .sign(RawReader.dataToBeEncrypted, false);
         new JwsAsymSignatureValidator(RawReader.ecKeyPair.getPublic())
-            .validateSignature(new JwsDecoder(jwsString), null);
+            .validate(new JwsDecoder(jwsString));
 
         jwsString = new JwsAsymKeySigner(RawReader.ecKeyPair.getPrivate(),
             AsymSignatureAlgorithms.ECDSA_SHA256)
             .setPublicKey(RawReader.ecKeyPair.getPublic())
-            .createSignature(RawReader.dataToBeEncrypted, false);
+            .sign(RawReader.dataToBeEncrypted, false);
         new JwsAsymSignatureValidator(RawReader.ecKeyPair.getPublic())
-            .validateSignature(new JwsDecoder(jwsString), null);
+            .validate(new JwsDecoder(jwsString));
 
         jwsString = new JwsAsymKeySigner(RawReader.ecKeyPair.getPrivate(),
             AsymSignatureAlgorithms.ECDSA_SHA256)
             .setPublicKey(RawReader.ecKeyPair.getPublic())
-            .createSignature(RawReader.dataToBeEncrypted, true);
+            .sign(RawReader.dataToBeEncrypted, true);
         new JwsAsymSignatureValidator(RawReader.ecKeyPair.getPublic())
-            .validateSignature(new JwsDecoder(jwsString), RawReader.dataToBeEncrypted);
+            .validate(new JwsDecoder(jwsString), RawReader.dataToBeEncrypted);
 
         jwsString = new JwsAsymKeySigner(RawReader.rsaKeyPair.getPrivate(),
             AsymSignatureAlgorithms.RSA_SHA256)
             .setPublicKey(RawReader.rsaKeyPair.getPublic())
-            .createSignature(RawReader.dataToBeEncrypted, true);
+            .sign(RawReader.dataToBeEncrypted, true);
         new JwsAsymSignatureValidator(RawReader.rsaKeyPair.getPublic())
-            .validateSignature(new JwsDecoder(jwsString), RawReader.dataToBeEncrypted);
+            .validate(new JwsDecoder(jwsString), RawReader.dataToBeEncrypted);
 
         jwsString = new JwsAsymKeySigner(RawReader.rsaKeyPair.getPrivate(),
             AsymSignatureAlgorithms.RSAPSS_SHA512)
             .setPublicKey(RawReader.rsaKeyPair.getPublic())
-            .createSignature(RawReader.dataToBeEncrypted, true);
+            .sign(RawReader.dataToBeEncrypted, true);
         new JwsAsymSignatureValidator(RawReader.rsaKeyPair.getPublic())
-            .validateSignature(new JwsDecoder(jwsString), RawReader.dataToBeEncrypted);
+            .validate(new JwsDecoder(jwsString), RawReader.dataToBeEncrypted);
 
         try {
             jwsString = new JwsAsymKeySigner(RawReader.ecKeyPair.getPrivate(),
                 AsymSignatureAlgorithms.ECDSA_SHA256)
                 .setPublicKey(RawReader.ecKeyPair.getPublic())
-                .createSignature(RawReader.dataToBeEncrypted, true);
+                .sign(RawReader.dataToBeEncrypted, true);
             new JwsAsymSignatureValidator(RawReader.ecKeyPair.getPublic())
-                .validateSignature(new JwsDecoder(jwsString), new byte[]{5,5});
+                .validate(new JwsDecoder(jwsString), new byte[]{5,5});
             fail("Bad data");
         } catch (Exception e) { Log.i("XXX",e.getMessage());}
 
@@ -217,9 +217,9 @@ public class InstrumentedTest {
             jwsString = new JwsAsymKeySigner(RawReader.ecKeyPair.getPrivate(),
                 AsymSignatureAlgorithms.ECDSA_SHA256)
                 .setPublicKey(RawReader.rsaKeyPair.getPublic())
-                .createSignature(RawReader.dataToBeEncrypted, false);
+                .sign(RawReader.dataToBeEncrypted, false);
             new JwsAsymSignatureValidator(RawReader.ecKeyPair.getPublic())
-                .validateSignature(new JwsDecoder(jwsString), null);
+                .validate(new JwsDecoder(jwsString));
             fail("Bad data");
         } catch (Exception e) { Log.i("XXX",e.getMessage());}
     }
@@ -276,7 +276,7 @@ public class InstrumentedTest {
 
         signature =
                 getData().setSignature(new JSONSymKeySigner(RawReader.secretKey,
-                                                            MACAlgorithms.HMAC_SHA256)).toString();
+                                                            HmacAlgorithms.HMAC_SHA256)).toString();
         JSONParser.parse(signature)
                 .getSignature(new JSONCryptoHelper.Options()
                         .setPublicKeyOption(JSONCryptoHelper.PUBLIC_KEY_OPTIONS.FORBIDDEN))

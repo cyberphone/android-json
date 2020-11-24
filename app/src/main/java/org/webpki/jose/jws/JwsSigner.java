@@ -46,8 +46,6 @@ public abstract class JwsSigner {
     
     JSONObjectWriter jwsProtectedHeader;
     
-    byte[] signature;
-    
     String provider;
     
     /*
@@ -55,16 +53,16 @@ public abstract class JwsSigner {
      */
     JwsSigner(SignatureAlgorithms signatureAlgorithm) throws IOException {
         jwsProtectedHeader = new JSONObjectWriter()
-            .setString(ALG_JSON,signatureAlgorithm.getKeyType() == KeyTypes.EDDSA ? 
+            .setString(ALG_JSON, signatureAlgorithm.getKeyType() == KeyTypes.EDDSA ? 
                            EdDSA 
                                                            : 
                            signatureAlgorithm.getAlgorithmId(AlgorithmPreferences.JOSE));
     }
 
     /**
-     * Set cryptographic provider
+     * Set cryptographic provider.
      * @param provider Name of provider like "BC"
-     * @return this
+     * @return JwsSigner
      */
     public JwsSigner setProvider(String provider) {
         this.provider = provider;
@@ -72,10 +70,21 @@ public abstract class JwsSigner {
     }
 
     /**
-     * Add header elements
+     * Adds "kid" to the JWS header.
+     * @param keyId The key identifier to be included.
+     * @return JwsSigner
+     * @throws IOException
+     */
+    public JwsSigner setKeyId(String keyId) throws IOException {
+        jwsProtectedHeader.setString(KID_JSON, keyId);
+        return this;
+    }
+
+    /**
+     * Add header elements.
      * @param items A set of JSON tokens
      * @throws IOException
-     * @return this
+     * @return JwsSigner
      */
     public JwsSigner addHeaderItems(JSONObjectReader items) throws IOException {
         for (String key : items.getProperties()) {
@@ -83,17 +92,37 @@ public abstract class JwsSigner {
         }
         return this;
     }
-    
+
     /**
-     * Create compact JWS signature
+     * Create JWS/CT object.
+     * @param objectToBeSigned The JSON object to be signed
+     * @param signatureProperty Name of property holding the "detached" JWS
+     * @return The now signed <code>objectToBeSigned</code>
+     * @throws IOException
+     * @throws GeneralSecurityException
+     */
+    public JSONObjectWriter sign(JSONObjectWriter objectToBeSigned, String signatureProperty)
+            throws IOException, GeneralSecurityException {
+        return objectToBeSigned.setString(signatureProperty, 
+                                          sign(objectToBeSigned
+                                                  .serializeToBytes(
+                                                          JSONOutputFormats.CANONICALIZED), true));
+    }
+
+    /**
+     * Create compact mode JWS object.
+     * Note that the detached mode follows the specification
+     * described in 
+     * <a href="https://tools.ietf.org/html/rfc7515#appendix-F" 
+     * target="_blank">https://tools.ietf.org/html/rfc7515#appendix-F</a>.
      * @param jwsPayload Binary payload
-     * @param detached True if payload is not to be supplied in the string
+     * @param detached True if payload is not to be supplied in the JWS string
      * @return JWS compact (string)
      * @throws IOException
      * @throws GeneralSecurityException
      */
-    public String createSignature(byte[] jwsPayload,
-                                  boolean detached) throws IOException, GeneralSecurityException {
+    public String sign(byte[] jwsPayload, boolean detached) 
+            throws IOException, GeneralSecurityException {
         
         // Create data to be signed
         String jwsProtectedHeaderB64U = Base64URL.encode(
@@ -101,33 +130,26 @@ public abstract class JwsSigner {
         String jwsPayloadB64U = Base64URL.encode(jwsPayload);
         byte[] dataToBeSigned = (jwsProtectedHeaderB64U + "." + jwsPayloadB64U).getBytes("utf-8");
 
-        // Sign data
-        signData(dataToBeSigned);
-        
-        // Disable any efforts reusing this object
-        jwsProtectedHeader = null;
-        
-        // Return JWS string
+        // Sign data and return JWS string
         return jwsProtectedHeaderB64U +
                 "." +
                 (detached ? "" : jwsPayloadB64U) +
                 "." +
-                Base64URL.encode(signature);
+                Base64URL.encode(signObject(dataToBeSigned));
     }
 
-    abstract void signData(byte[] dataToBeSigned) throws IOException, GeneralSecurityException;
+    abstract byte[] signObject(byte[] dataToBeSigned) throws IOException, GeneralSecurityException;
 
     /*
      * Verify that EC algorithms follow key types as specified by RFC 7515
      */
     static void checkEcJwsCompliance(Key key, AsymSignatureAlgorithms signatureAlgorithm)
             throws GeneralSecurityException, IOException {
-        if (key instanceof ECKey) {
-            if (KeyAlgorithms.getKeyAlgorithm(key)
+        if (key instanceof ECKey &&
+            KeyAlgorithms.getKeyAlgorithm(key)
                     .getRecommendedSignatureAlgorithm() != signatureAlgorithm) {
-                throw new GeneralSecurityException(
-                        "EC key and algorithm does not match the JWS spec");
-            }
+            throw new GeneralSecurityException(
+                    "EC key and algorithm does not match the JWS spec");
         } 
     }
 }

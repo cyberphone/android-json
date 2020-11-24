@@ -34,7 +34,7 @@ import java.security.spec.RSAPublicKeySpec;
 import java.security.spec.X509EncodedKeySpec;
 
 /**
- * Asymmetric key algorithms
+ * Asymmetric key algorithms.
  */
 public enum KeyAlgorithms implements CryptoAlgorithms {
 
@@ -402,7 +402,7 @@ public enum KeyAlgorithms implements CryptoAlgorithms {
 
     public static KeyAlgorithms getECKeyAlgorithm(ECParameterSpec actual) throws IOException {
         for (KeyAlgorithms alg : values()) {
-            if (alg.getKeyType() == KeyTypes.EC) {
+            if (alg.keyType == KeyTypes.EC) {
                 ECParameterSpec ref = alg.ecParmSpec;
                 if (ref.getCofactor() == actual.getCofactor() &&
                     ref.getOrder().equals(actual.getOrder()) &&

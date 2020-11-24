@@ -31,7 +31,7 @@ import java.security.spec.ECParameterSpec;
 
 
 /**
- * Wrapper over java.security.Signature
+ * Wrapper over java.security.Signature.
  *
  * Source configured for Android. 
  */

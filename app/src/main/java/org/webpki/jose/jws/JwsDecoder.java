@@ -25,7 +25,7 @@ import java.security.cert.X509Certificate;
 
 import org.webpki.crypto.AlgorithmPreferences;
 import org.webpki.crypto.AsymSignatureAlgorithms;
-import org.webpki.crypto.MACAlgorithms;
+import org.webpki.crypto.HmacAlgorithms;
 import org.webpki.crypto.SignatureAlgorithms;
 
 import static org.webpki.jose.JoseKeyWords.*;
@@ -38,15 +38,19 @@ import org.webpki.json.JSONParser;
 import org.webpki.util.Base64URL;
 
 /**
- * Core JWS decoder
+ * JWS and JWS/CT decoder
  */
 public class JwsDecoder {
     
-    String jwsProtectedHeaderB64U;
+    String jwsHeaderB64U;
     
-    JSONObjectReader jwsProtectedHeader;
+    JSONObjectReader jwsHeader;
     
-    String optionalJwsPayloadB64U;
+    String jwsPayloadB64U;
+    
+    JSONObjectReader savedJwsCtObject;
+    
+    boolean validated;
     
     SignatureAlgorithms signatureAlgorithm;
     
@@ -58,13 +62,13 @@ public class JwsDecoder {
     
     String optionalKeyId;
     
-    /**
-     * JWS signature decoder
-     * @param jwsString The actual JWS string.  If there is no payload detached mode is assumed
-     * @throws IOException
-     * @throws GeneralSecurityException
-     */
-    public JwsDecoder(String jwsString) throws IOException, GeneralSecurityException {
+    private void checkValidation() throws GeneralSecurityException {
+        if (!validated) {
+            throw new GeneralSecurityException("Trying to access payload before validation");
+        }        
+    }
+    
+    private void decodeJwsString(String jwsString) throws GeneralSecurityException, IOException {
 
         // Extract the JWS elements
         int endOfHeader = jwsString.indexOf('.');
@@ -75,29 +79,29 @@ public class JwsDecoder {
         }
         if (endOfHeader < startOfSignature - 1) {
             // In-line signature
-            optionalJwsPayloadB64U = jwsString.substring(endOfHeader + 1, startOfSignature);
-            Base64URL.decode(optionalJwsPayloadB64U);  // Syntax check
+            jwsPayloadB64U = jwsString.substring(endOfHeader + 1, startOfSignature);
+            Base64URL.decode(jwsPayloadB64U);  // Syntax check
         }
         
         // Begin decoding the JWS header
-        jwsProtectedHeaderB64U = jwsString.substring(0, endOfHeader);
-        jwsProtectedHeader = JSONParser.parse(Base64URL.decode(jwsProtectedHeaderB64U));
-        String algorithmParam = jwsProtectedHeader.getString(ALG_JSON);
+        jwsHeaderB64U = jwsString.substring(0, endOfHeader);
+        jwsHeader = JSONParser.parse(Base64URL.decode(jwsHeaderB64U));
+        String algorithmProperty = jwsHeader.getString(ALG_JSON);
         
         // Get the binary signature
         signature = Base64URL.decode(jwsString.substring(startOfSignature + 1));
 
         // This is pretty ugly, two different conventions in the same standard!
-        if (algorithmParam.equals(EdDSA)) {
+        if (algorithmProperty.equals(EdDSA)) {
             signatureAlgorithm = signature.length == 64 ? 
                         AsymSignatureAlgorithms.ED25519 : AsymSignatureAlgorithms.ED448;
-        } else if (algorithmParam.startsWith("HS")) {
+        } else if (algorithmProperty.startsWith("HS")) {
             signatureAlgorithm = 
-                    MACAlgorithms.getAlgorithmFromId(algorithmParam,
+                    HmacAlgorithms.getAlgorithmFromId(algorithmProperty,
                                                      AlgorithmPreferences.JOSE);
         } else {
             signatureAlgorithm =
-                    AsymSignatureAlgorithms.getAlgorithmFromId(algorithmParam, 
+                    AsymSignatureAlgorithms.getAlgorithmFromId(algorithmProperty, 
                                                                AlgorithmPreferences.JOSE);
         }
         
@@ -105,19 +109,19 @@ public class JwsDecoder {
         // elements modulo JKU and X5U
         
         // Decode possible JWK
-        if (jwsProtectedHeader.hasProperty(JWK_JSON)) {
+        if (jwsHeader.hasProperty(JWK_JSON)) {
             optionalPublicKey = 
-                    jwsProtectedHeader.getObject(JWK_JSON)
+                    jwsHeader.getObject(JWK_JSON)
                         .getCorePublicKey(AlgorithmPreferences.JOSE);
         }
 
         // Decode possible X5C?
-        if (jwsProtectedHeader.hasProperty(X5C_JSON)) {
+        if (jwsHeader.hasProperty(X5C_JSON)) {
             if (optionalPublicKey != null) {
                 throw new GeneralSecurityException("Both X5C and JWK?");
             }
             JSONArrayWriter path = new JSONArrayWriter();
-            for (String certB64 : jwsProtectedHeader.getStringArray(X5C_JSON)) {
+            for (String certB64 : jwsHeader.getStringArray(X5C_JSON)) {
                 path.setString(certB64.replace("=","")
                                       .replace('/', '_')
                                       .replace('+', '-'));
@@ -132,41 +136,130 @@ public class JwsDecoder {
         }
         
         // Decode possible KID
-        optionalKeyId = jwsProtectedHeader.getStringConditional(KID_JSON);
+        optionalKeyId = jwsHeader.getStringConditional(KID_JSON);
     }
-
+    
     /**
-     * Get protected header
+     * JWS compact mode signature decoder.
+     * @param jwsString The actual JWS string.  If there is no payload detached mode is assumed
+     * @throws IOException
+     * @throws GeneralSecurityException
      */
-    public JSONObjectReader getJwsProtectedHeader() {
-        return jwsProtectedHeader;
+    public JwsDecoder(String jwsString) throws IOException, GeneralSecurityException {
+        decodeJwsString(jwsString);
     }
 
     /**
-     * Get signature algorithm
+     * JWS/CT signature decoder.
+     * Note that the <code>jwsCtObject</code> remains <i>unmodified</i>.
+     * @param jwsCtObject The signed JSON object
+     * @param signatureProperty Name of top-level property holding the JWS string
+     * @throws IOException
+     * @throws GeneralSecurityException
+     */
+    public JwsDecoder(JSONObjectReader jwsCtObject, String signatureProperty) 
+            throws IOException, GeneralSecurityException {
+
+        // Do not alter the original!
+        savedJwsCtObject = jwsCtObject.clone();
+        String jwsString = savedJwsCtObject.getString(signatureProperty);
+        if (!jwsString.contains("..")) {
+            throw new GeneralSecurityException("JWS detached mode syntax error");
+        }
+        savedJwsCtObject.removeProperty(signatureProperty);
+        jwsPayloadB64U = Base64URL.encode(
+                savedJwsCtObject.serializeToBytes(JSONOutputFormats.CANONICALIZED));
+        decodeJwsString(jwsString);
+    }
+
+    /**
+     * Get JWS header.
+     * @return JWS header as a JSON object.
+     */
+    public JSONObjectReader getJwsHeaderAsJson() {
+        return jwsHeader;
+    }
+
+    /**
+     * Get JWS header.
+     * @return JWS header as a verbatim string copy after Base64Url-decoding.
+     * @throws IOException 
+     */
+    public String getJwsHeaderAsString() throws IOException {
+        return new String(Base64URL.decode(jwsHeaderB64U), "utf-8");
+    }
+    
+    /**
+     * Get signature algorithm.
      */
     public SignatureAlgorithms getSignatureAlgorithm() {
         return signatureAlgorithm;
     }
 
     /**
-     * Get optional "jwk"
+     * Get optional "jwk".
+     * @return Public key or <b>null</b> if there is no "jwk" property in the JWS header.
      */
     public PublicKey getOptionalPublicKey() {
         return optionalPublicKey;
     }
 
     /**
-     * Get optional "x5c"
+     * Get optional "x5c".
+     * @return Certificate path or <b>null</b> if there is no "x5c" property in the JWS header.
      */
     public X509Certificate[] getOptionalCertificatePath() {
         return optionalCertificatePath;
     }
 
     /**
-     * Get optional "kid"
+     * Get optional "kid".
+     * @return Key identifier or <b>null</b> if there is no "kid" property in the JWS header.
      */
     public String getOptionalKeyId() {
         return optionalKeyId;
+    }
+
+    /**
+     * Get JWS payload.
+     * Note that this method throws an exception if the
+     * {@link org.webpki.jose.jws.JwsDecoder}
+     * object signature have not yet been
+     * {@link org.webpki.jose.jws.JwsValidator#validate(JwsDecoder) validated}.
+     * For JWS/CT, the payload holds the canonicalized
+     * version of the 
+     * {@link org.webpki.jose.jws.JwsDecoder#JwsDecoder(JSONObjectReader, String) jwsCtObject}
+     * with the
+    * {@link org.webpki.jose.jws.JwsDecoder#JwsDecoder(JSONObjectReader, String) signatureProperty}
+     * removed.
+     * @return Payload binary
+     * @throws GeneralSecurityException
+     * @throws IOException
+     */
+    public byte[] getPayload() throws GeneralSecurityException, IOException {
+        checkValidation();
+        return Base64URL.decode(jwsPayloadB64U);
+    }
+
+    /**
+     * Get JWS payload.
+     * Note that this method throws an exception if the
+     * {@link org.webpki.jose.jws.JwsDecoder}
+     * object signature have not yet been
+     * {@link org.webpki.jose.jws.JwsValidator#validate(JwsDecoder) validated}.
+     * For JWS/CT this method return the JSON that is actually signed.  That is,
+     * all but the 
+    * {@link org.webpki.jose.jws.JwsDecoder#JwsDecoder(JSONObjectReader, String) signatureProperty}
+     * and its JWS argument.
+     * @return Payload as JSON
+     * @throws GeneralSecurityException
+     * @throws IOException
+     */
+    public JSONObjectReader getPayloadAsJson() throws GeneralSecurityException, IOException {
+        if (savedJwsCtObject == null) {
+            return JSONParser.parse(getPayload());
+        }
+        checkValidation();
+        return savedJwsCtObject;
     }
 }

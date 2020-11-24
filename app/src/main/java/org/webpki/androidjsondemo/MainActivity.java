@@ -34,7 +34,7 @@ import androidx.webkit.WebViewAssetLoader;
 
 import androidx.appcompat.app.AppCompatActivity;
 
-import org.webpki.crypto.MACAlgorithms;
+import org.webpki.crypto.HmacAlgorithms;
 import org.webpki.crypto.AlgorithmPreferences;
 
 import org.webpki.json.JSONAsymKeySigner;
@@ -235,7 +235,7 @@ public class MainActivity extends AppCompatActivity {
                     signedData.getObject(JSONObjectWriter.SIGNATURE_DEFAULT_LABEL_JSON);
             JSONCryptoHelper.Options options = new JSONCryptoHelper.Options();
             String algorithm = jsfObject.getString(JSONCryptoHelper.ALGORITHM_JSON);
-            for (MACAlgorithms macs : MACAlgorithms.values()) {
+            for (HmacAlgorithms macs : HmacAlgorithms.values()) {
                 if (algorithm.equals(macs.getAlgorithmId(AlgorithmPreferences.JOSE_ACCEPT_PREFER))) {
                     options.setPublicKeyOption(JSONCryptoHelper.PUBLIC_KEY_OPTIONS.FORBIDDEN);
                     options.setKeyIdOption(JSONCryptoHelper.KEY_ID_OPTIONS.REQUIRED);
@@ -321,7 +321,7 @@ public class MainActivity extends AppCompatActivity {
                     break;
                 default:
                     writer.setSignature(new JSONSymKeySigner(RawReader.secretKey,
-                                                             MACAlgorithms.HMAC_SHA256).setKeyId(RawReader.secretKeyId));
+                                                             HmacAlgorithms.HMAC_SHA256).setKeyId(RawReader.secretKeyId));
             }
             verifySignature(writer.toString());
         } catch (Exception e) {

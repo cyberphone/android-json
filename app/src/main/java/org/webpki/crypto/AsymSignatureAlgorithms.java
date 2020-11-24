@@ -20,12 +20,12 @@ import java.io.IOException;
 
 import java.security.spec.MGF1ParameterSpec;
 
+/**
+ * Asymmetric key signature algorithms.
+ *
+ */
 public enum AsymSignatureAlgorithms implements SignatureAlgorithms {
 
-    RSA_NONE      ("https://webpki.github.io/sks/algorithm#rsa.pkcs1.none",  null,
-                   null,                    "NONEwithRSA",     null,
-                   true,  KeyTypes.RSA,   null),
-      
     RSA_SHA1      ("http://www.w3.org/2000/09/xmldsig#rsa-sha1",             null,              
                    "1.2.840.113549.1.1.5",  "SHA1withRSA",     HashAlgorithms.SHA1,
                    false, KeyTypes.RSA,   null),
@@ -44,20 +44,16 @@ public enum AsymSignatureAlgorithms implements SignatureAlgorithms {
       
     RSAPSS_SHA256 ("http://www.w3.org/2007/05/xmldsig-more#sha256-rsa-MGF1", "PS256",      
                    "1.2.840.113549.1.1.10", "SHA256withRSA/PSS", null/* Android != JDK */, 
-                   true,  KeyTypes.RSA,   MGF1ParameterSpec.SHA256),
+                   false, KeyTypes.RSA,   MGF1ParameterSpec.SHA256),
 
     RSAPSS_SHA384 ("http://www.w3.org/2007/05/xmldsig-more#sha384-rsa-MGF1", "PS384",     
                    "1.2.840.113549.1.1.10", "SHA384withRSA/PSS", null/* Android != JDK */, 
-                   true,  KeyTypes.RSA,   MGF1ParameterSpec.SHA384),
+                   false, KeyTypes.RSA,   MGF1ParameterSpec.SHA384),
 
     RSAPSS_SHA512 ("http://www.w3.org/2007/05/xmldsig-more#sha512-rsa-MGF1", "PS512",   
                    "1.2.840.113549.1.1.10", "SHA512withRSA/PSS", null/* Android != JDK */,
-                   true,  KeyTypes.RSA,   MGF1ParameterSpec.SHA512),
+                   false, KeyTypes.RSA,   MGF1ParameterSpec.SHA512),
 
-    ECDSA_NONE    ("https://webpki.github.io/sks/algorithm#ecdsa.none",     null,
-                   null,                    "NONEwithECDSA",   null,                  
-                   true,  KeyTypes.EC,    null),
-      
     ECDSA_SHA256  ("http://www.w3.org/2001/04/xmldsig-more#ecdsa-sha256",    "ES256",  
                    "1.2.840.10045.4.3.2",   "SHA256withECDSA", HashAlgorithms.SHA256,
                    true,  KeyTypes.EC,    null),

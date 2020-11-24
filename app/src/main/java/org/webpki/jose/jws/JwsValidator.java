@@ -31,11 +31,11 @@ public abstract class JwsValidator {
 
     JwsValidator() {}
     
-    abstract void validate(byte[] signedData, JwsDecoder jwsDecoder) 
+    abstract void validateObject(byte[] signedData, JwsDecoder jwsDecoder) 
             throws IOException, GeneralSecurityException;
 
     /**
-     * Set cryptographic provider
+     * Set cryptographic provider.
      * @param provider Name of provider like "BC"
      * @return this
      */
@@ -45,32 +45,61 @@ public abstract class JwsValidator {
     }
     
     /**
-     * Validate compact JWS signature
-     * @param jwsDecoder Decoded header and string
-     * @param optionalJwsPayload Must be supplied for detached mode, null otherwise
+     * Validate JWS object in "detached" mode.
+     * Note that the detached mode follows the specification
+     * described in 
+     * <a href="https://tools.ietf.org/html/rfc7515#appendix-F" 
+     * target="_blank">https://tools.ietf.org/html/rfc7515#appendix-F</a>.
+     * @param jwsDecoder Decoded JWS data
+     * @param detachedPayload Detached payload
+     * @return JwsDecoder
      * @throws IOException
      * @throws GeneralSecurityException
      */
-    public void validateSignature(JwsDecoder jwsDecoder, byte[] optionalJwsPayload) 
+    public JwsDecoder validate(JwsDecoder jwsDecoder, byte[] detachedPayload) 
             throws IOException, GeneralSecurityException {
 
-        // Dealing with detached and in-line
-        String jwsPayloadB64U;
-        if (jwsDecoder.optionalJwsPayloadB64U == null) {
-            if (optionalJwsPayload == null) {
-                throw new IllegalArgumentException("Detached payload missing");
-            }
-            jwsPayloadB64U = Base64URL.encode(optionalJwsPayload);
-        } else {
-            if (optionalJwsPayload != null) {
-                throw new IllegalArgumentException(
-                        "Both external and JWS-supplied payload? Set argument to \"null\"");
-            }
-            jwsPayloadB64U = jwsDecoder.optionalJwsPayloadB64U;
+        // Dealing with detached signatures
+        if (detachedPayload == null) {
+            throw new IllegalArgumentException("Detached payload must not be \"null\"");
+        }
+        if (jwsDecoder.jwsPayloadB64U != null) {
+            throw new IllegalArgumentException("Mixing detached and JWS-supplied payload");
+        }
+        jwsDecoder.jwsPayloadB64U = Base64URL.encode(detachedPayload);
+  
+        // Main JWS validator
+        return validate(jwsDecoder);
+    }
+
+    /**
+     * Validate JWS or JWS/CT object.
+     * Note that for JWS the "standard" mode is assumed while
+     * JWS/CT implicitly builds on the "detached" mode.
+     * @param jwsDecoder Decoded JWS data
+     * @return JwsDecoder
+     * @throws IOException
+     * @throws GeneralSecurityException
+     */
+    public JwsDecoder validate(JwsDecoder jwsDecoder) 
+            throws IOException, GeneralSecurityException {
+
+        // Dealing with in-line signatures
+        if (jwsDecoder.jwsPayloadB64U == null) {
+            throw new IllegalArgumentException(
+                    "Missing payload, use \"validate(JwsDecoder, byte[])\"");
         }
         
-        // Delegated validation
-        validate((jwsDecoder.jwsProtectedHeaderB64U + "." + jwsPayloadB64U).getBytes("utf-8"),
-                 jwsDecoder);
+        // Delegated validation 
+        validateObject((jwsDecoder.jwsHeaderB64U + 
+                        "." + 
+                        jwsDecoder.jwsPayloadB64U).getBytes("utf-8"),
+                       jwsDecoder);
+        
+        // No access to payload without having passed validation
+        jwsDecoder.validated = true;
+        
+        // Convenience return
+        return jwsDecoder;
     }
 }
