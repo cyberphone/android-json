@@ -22,10 +22,10 @@ import java.io.IOException;
 import java.security.GeneralSecurityException;
 
 /**
- * Common interface for asymmetric key signatures.
+ * Common interface for HMAC signatures.
  *
  */
-public interface AsymKeySignerInterface {
+public interface HmacSignerInterface {
 
     /**
      * Sign data.
@@ -36,7 +36,7 @@ public interface AsymKeySignerInterface {
      * @throws GeneralSecurityException
      */
     byte[] signData(byte[] data) throws IOException, GeneralSecurityException;
-    
+
     /**
      * Get signature algorithm.
      * 
@@ -44,7 +44,19 @@ public interface AsymKeySignerInterface {
      * @throws IOException
      * @throws GeneralSecurityException
      */
-    default AsymSignatureAlgorithms getAlgorithm() throws IOException, GeneralSecurityException {
+    default HmacAlgorithms getAlgorithm() throws IOException, GeneralSecurityException {
+        throw new GeneralSecurityException("Missing implementation!");
+    }
+
+    /**
+     * Set signature algorithm.
+     * 
+     * @param algorithm The signature algorithm
+     * @throws IOException
+     * @throws GeneralSecurityException
+     */
+    default void setAlgorithm(HmacAlgorithms algorithm) throws IOException,
+                                                               GeneralSecurityException {
         throw new GeneralSecurityException("Missing implementation!");
     }
 

@@ -1,5 +1,5 @@
 /*
- *  Copyright 2006-2020 WebPKI.org (http://webpki.org).
+ *  Copyright 2006-2021 WebPKI.org (http://webpki.org).
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -18,67 +18,72 @@ package org.webpki.json;
 
 import java.io.IOException;
 
+import java.security.GeneralSecurityException;
+
 import org.webpki.crypto.AlgorithmPreferences;
 import org.webpki.crypto.HmacAlgorithms;
 import org.webpki.crypto.SignatureAlgorithms;
-import org.webpki.crypto.SymKeySignerInterface;
+import org.webpki.crypto.HmacSignerInterface;
 
 /**
- * Initiator object for symmetric key signatures.
+ * Initiator object for HMAC signatures.
  */
-public class JSONSymKeySigner extends JSONSigner {
+public class JSONHmacSigner extends JSONSigner {
 
-    private static final long serialVersionUID = 1L;
-
-    HmacAlgorithms algorithm;
-
-    SymKeySignerInterface signer;
+    HmacSignerInterface signer;
 
     /**
      * Constructor for custom crypto solutions.
      * @param signer Handle to implementation
-     * @throws IOException &nbsp;
+     * @throws IOException
+     * @throws GeneralSecurityException 
      */
-    public JSONSymKeySigner(SymKeySignerInterface signer) throws IOException {
+    public JSONHmacSigner(HmacSignerInterface signer) throws IOException,
+                                                                 GeneralSecurityException {
         this.signer = signer;
-        algorithm = signer.getHmacAlgorithm();
     }
 
     /**
      * Constructor for JCE based solutions.
      * @param rawKey Key
      * @param algorithm MAC algorithm
-     * @throws IOException &nbsp;
+     * @throws IOException
      */
-    public JSONSymKeySigner(final byte[] rawKey, final HmacAlgorithms algorithm) throws IOException {
-        this(new SymKeySignerInterface() {
+    public JSONHmacSigner(final byte[] rawKey, final HmacAlgorithms algorithm) 
+            throws IOException {
+        signer = new HmacSignerInterface() {
 
             @Override
-            public byte[] signData(byte[] data, HmacAlgorithms algorithm) throws IOException {
+            public byte[] signData(byte[] data) throws IOException, GeneralSecurityException {
                 return algorithm.digest(rawKey, data);
             }
 
             @Override
-            public HmacAlgorithms getHmacAlgorithm() throws IOException {
+            public HmacAlgorithms getAlgorithm() throws IOException {
                 return algorithm;
             }
+
+            @Override
+            public void setAlgorithm(HmacAlgorithms algorithm)
+                    throws IOException, GeneralSecurityException {
+            }
            
-        });
+        };
     }
 
-    public JSONSymKeySigner setAlgorithmPreferences(AlgorithmPreferences algorithmPreferences) {
+    public JSONHmacSigner setAlgorithmPreferences(AlgorithmPreferences algorithmPreferences) {
         this.algorithmPreferences = algorithmPreferences;
         return this;
     }
 
     @Override
-    SignatureAlgorithms getAlgorithm() {
-        return algorithm;
+    SignatureAlgorithms getAlgorithm() throws IOException, GeneralSecurityException {
+        return signer.getAlgorithm();
     }
 
     @Override
-    byte[] signData(byte[] data) throws IOException {
-        return signer.signData(data, algorithm);
+    byte[] signData(byte[] data) throws IOException, GeneralSecurityException {
+        return signer.signData(data);
     }
 
     @Override

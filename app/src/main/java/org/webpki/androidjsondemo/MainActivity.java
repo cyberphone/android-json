@@ -43,8 +43,8 @@ import org.webpki.json.JSONObjectWriter;
 import org.webpki.json.JSONSignatureDecoder;
 import org.webpki.json.JSONDecryptionDecoder;
 import org.webpki.json.JSONParser;
-import org.webpki.json.JSONSymKeySigner;
-import org.webpki.json.JSONSymKeyVerifier;
+import org.webpki.json.JSONHmacSigner;
+import org.webpki.json.JSONHmacVerifier;
 import org.webpki.json.JSONX509Signer;
 import org.webpki.json.JSONCryptoHelper;
 import org.webpki.json.JSONAsymKeyEncrypter;
@@ -261,7 +261,7 @@ public class MainActivity extends AppCompatActivity {
                     key = signature.getCertificatePath()[0].toString();
                     break;
                 default:
-                    signature.verify(new JSONSymKeyVerifier(RawReader.secretKey));
+                    signature.verify(new JSONHmacVerifier(RawReader.secretKey));
                     key = Base64URL.encode(RawReader.secretKey);
             }
             loadHtml("",
@@ -311,16 +311,15 @@ public class MainActivity extends AppCompatActivity {
                 case RSA_KEY:
                     KeyPair keyPair = sigType == SIG_TYPES.RSA_KEY ?
                                               RawReader.rsaKeyPair : RawReader.ecKeyPair;
-                    writer.setSignature(new JSONAsymKeySigner(keyPair.getPrivate(), keyPair.getPublic(), null));
+                    writer.setSignature(new JSONAsymKeySigner(keyPair.getPrivate())
+                            .setPublicKey(keyPair.getPublic()));
                     break;
                 case PKI:
-                    writer.setSignature(new JSONX509Signer(
-                            RawReader.ecKeyPair.getPrivate(),
-                            RawReader.ecCertPath,
-                            null));
+                    writer.setSignature(new JSONX509Signer(RawReader.ecKeyPair.getPrivate(),
+                                                           RawReader.ecCertPath));
                     break;
                 default:
-                    writer.setSignature(new JSONSymKeySigner(RawReader.secretKey,
+                    writer.setSignature(new JSONHmacSigner(RawReader.secretKey,
                                                              HmacAlgorithms.HMAC_SHA256).setKeyId(RawReader.secretKeyId));
             }
             verifySignature(writer.toString());

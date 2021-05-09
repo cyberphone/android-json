@@ -1,5 +1,5 @@
 /*
- *  Copyright 2006-2020 WebPKI.org (http://webpki.org).
+ *  Copyright 2006-2021 WebPKI.org (http://webpki.org).
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -38,7 +38,7 @@ public class CertificateUtil {
     private CertificateUtil() {}  // No instantiation please
 
     public static X509Certificate[] checkCertificatePath(X509Certificate[] certificatePath) 
-    throws IOException {
+            throws IOException, GeneralSecurityException {
         X509Certificate signedCertificate = certificatePath[0];
         int i = 0;
         while (++i < certificatePath.length) {
@@ -49,27 +49,20 @@ public class CertificateUtil {
                 throw new IOException("Path issuer order error, '" + 
                                       issuer + "' versus '" + subject + "'");
             }
-            try {
-                signedCertificate.verify(signerCertificate.getPublicKey());
-            } catch (GeneralSecurityException e) {
-                throw new IOException(e);
-            }
+            signedCertificate.verify(signerCertificate.getPublicKey());
             signedCertificate = signerCertificate;
         }
         return certificatePath;
     }
 
-    public static X509Certificate getCertificateFromBlob(byte[] encoded) throws IOException {
-        try {
-            CertificateFactory cf = CertificateFactory.getInstance("X.509");
-            return (X509Certificate) cf.generateCertificate(new ByteArrayInputStream(encoded));
-        } catch (GeneralSecurityException e) {
-            throw new IOException(e);
-        }
+    public static X509Certificate getCertificateFromBlob(byte[] encoded)
+            throws IOException, GeneralSecurityException {
+        CertificateFactory cf = CertificateFactory.getInstance("X.509");
+        return (X509Certificate) cf.generateCertificate(new ByteArrayInputStream(encoded));
     }
 
     public static X509Certificate[] makeCertificatePath(List<byte[]> certificateBlobs)
-    throws IOException {
+            throws IOException, GeneralSecurityException {
         ArrayList<X509Certificate> certificates = new ArrayList<>();
         for (byte[] certificateBlob : certificateBlobs) {
             certificates.add(getCertificateFromBlob(certificateBlob));

@@ -1,5 +1,5 @@
 /*
- *  Copyright 2006-2020 WebPKI.org (http://webpki.org).
+ *  Copyright 2006-2021 WebPKI.org (http://webpki.org).
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -118,7 +118,7 @@ public class Base64URL {
      *
      * @param byteArray Binary data
      * @return Encoded data as a String
-     * @throws IOException &nbsp;
+     * @throws IOException
      */
     public static String encode(byte[] byteArray) throws IOException {
         //determine length of output

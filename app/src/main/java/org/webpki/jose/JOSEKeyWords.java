@@ -1,5 +1,5 @@
 /*
- *  Copyright 2006-2020 WebPKI.org (http://webpki.org).
+ *  Copyright 2018-2020 WebPKI.org (http://webpki.org).
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -14,18 +14,18 @@
  *  limitations under the License.
  *
  */
-package org.webpki.crypto;
+package org.webpki.jose;
 
-import java.io.IOException;
-
-import java.security.cert.X509Certificate;
-
-public interface VerifierInterface {
-
-    void setTrustedRequired(boolean flag) throws IOException;
-
-    boolean verifyCertificatePath(X509Certificate[] certificatePath) throws IOException;
-
-    X509Certificate[] getSignerCertificatePath() throws IOException;
+/**
+ * Holds JOSE key words
+ */
+public interface JOSEKeyWords {
+    
+    String ALG_JSON = "alg";
+    String KID_JSON = "kid";
+    String JWK_JSON = "jwk";
+    String X5C_JSON = "x5c";
+    
+    String EdDSA    = "EdDSA";
 
 }

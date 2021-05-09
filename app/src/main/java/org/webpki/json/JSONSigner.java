@@ -1,5 +1,5 @@
 /*
- *  Copyright 2006-2020 WebPKI.org (http://webpki.org).
+ *  Copyright 2006-2021 WebPKI.org (http://webpki.org).
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -17,7 +17,8 @@
 package org.webpki.json;
 
 import java.io.IOException;
-import java.io.Serializable;
+
+import java.security.GeneralSecurityException;
 
 import org.webpki.crypto.AlgorithmPreferences;
 import org.webpki.crypto.SignatureAlgorithms;
@@ -25,17 +26,15 @@ import org.webpki.crypto.SignatureAlgorithms;
 /**
  * Support class for signature generators.
  */
-public abstract class JSONSigner extends JSONCryptoHelper.ExtensionsEncoder implements Serializable {
-
-    private static final long serialVersionUID = 1L;
+public abstract class JSONSigner extends JSONCryptoHelper.ExtensionsEncoder {
 
     JSONObjectReader extensionData;
     
     String[] excluded;
 
     String keyId;
-
-    boolean outputPublicKeyInfo = true;
+    
+    String provider;
 
     byte[] normalizedData;
 
@@ -43,12 +42,12 @@ public abstract class JSONSigner extends JSONCryptoHelper.ExtensionsEncoder impl
     
     JSONSigner() {
     }
-
-    abstract SignatureAlgorithms getAlgorithm();
     
-    abstract byte[] signData(byte[] data) throws IOException;
+    abstract SignatureAlgorithms getAlgorithm() throws IOException, GeneralSecurityException;
+    
+    abstract byte[] signData(byte[] data) throws IOException, GeneralSecurityException;
 
-    abstract void writeKeyData(JSONObjectWriter wr) throws IOException;
+    abstract void writeKeyData(JSONObjectWriter wr) throws IOException, GeneralSecurityException;
 
     /**
      * Set (object level) list of permitted extension elements.
@@ -56,7 +55,7 @@ public abstract class JSONSigner extends JSONCryptoHelper.ExtensionsEncoder impl
      * scenario
      * @param names A list of permitted extensions 
      * @return this
-     * @throws IOException &nbsp;
+     * @throws IOException
      */
     public JSONSigner setExtensionNames(String[] names) throws IOException {
         super.setExtensionNames(names, false);
@@ -67,7 +66,7 @@ public abstract class JSONSigner extends JSONCryptoHelper.ExtensionsEncoder impl
      * Set specific extension data for this signature.
      * @param extensions JSON object holding the extension properties and associated values
      * @return this
-     * @throws IOException &nbsp;
+     * @throws IOException
      */
     public JSONSigner setExtensionData(JSONObjectWriter extensions) throws IOException {
         this.extensionData = new JSONObjectReader(extensions);
@@ -79,7 +78,7 @@ public abstract class JSONSigner extends JSONCryptoHelper.ExtensionsEncoder impl
      * Set &quot;excl&quot; for this signature.
      * @param excluded Array holding the names of properties that must be excluded from the signature
      * @return this
-     * @throws IOException &nbsp;
+     * @throws IOException
      */
     public JSONSigner setExcluded(String[] excluded) throws IOException {
         this.excluded = excluded;
@@ -95,17 +94,6 @@ public abstract class JSONSigner extends JSONCryptoHelper.ExtensionsEncoder impl
      */
     public JSONSigner setKeyId(String keyId) {
         this.keyId = keyId;
-        return this;
-    }
-
-    /**
-     * Set if public key information should be provided in the signature.
-     * Note: default <code>true</code>.
-     * @param flag <code>true</code> if such information is to be provided
-     * @return this
-     */
-    public JSONSigner setOutputPublicKeyInfo(boolean flag) {
-        this.outputPublicKeyInfo = flag;
         return this;
     }
 

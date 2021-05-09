@@ -17,20 +17,20 @@ import org.junit.runner.RunWith;
 import org.webpki.crypto.AsymSignatureAlgorithms;
 import org.webpki.crypto.HmacAlgorithms;
 
-import org.webpki.jose.jws.JwsAsymKeySigner;
-import org.webpki.jose.jws.JwsAsymSignatureValidator;
-import org.webpki.jose.jws.JwsDecoder;
+import org.webpki.jose.jws.JWSAsymKeySigner;
+import org.webpki.jose.jws.JWSAsymSignatureValidator;
+import org.webpki.jose.jws.JWSDecoder;
 
 import org.webpki.json.JSONAsymKeySigner;
 import org.webpki.json.JSONAsymKeyVerifier;
 import org.webpki.json.JSONDecryptionDecoder;
 import org.webpki.json.JSONCryptoHelper;
 import org.webpki.json.JSONOutputFormats;
-import org.webpki.json.JSONSymKeySigner;
+import org.webpki.json.JSONHmacSigner;
 import org.webpki.json.JSONObjectReader;
 import org.webpki.json.JSONObjectWriter;
 import org.webpki.json.JSONParser;
-import org.webpki.json.JSONSymKeyVerifier;
+import org.webpki.json.JSONHmacVerifier;
 import org.webpki.json.JSONAsymKeyEncrypter;
 import org.webpki.json.DataEncryptionAlgorithms;
 import org.webpki.json.JSONX509Signer;
@@ -162,64 +162,64 @@ public class InstrumentedTest {
 
     @Test
     public void jws() throws Exception {
-        String jwsString = new JwsAsymKeySigner(RawReader.ecKeyPair.getPrivate(),
+        String jwsString = new JWSAsymKeySigner(RawReader.ecKeyPair.getPrivate(),
                                                 AsymSignatureAlgorithms.ECDSA_SHA256)
             .sign(RawReader.dataToBeEncrypted, false);
-        new JwsAsymSignatureValidator(RawReader.ecKeyPair.getPublic())
-            .validate(new JwsDecoder(jwsString));
+        new JWSAsymSignatureValidator(RawReader.ecKeyPair.getPublic())
+            .validate(new JWSDecoder(jwsString));
 
-        jwsString = new JwsAsymKeySigner(RawReader.ecKeyPair.getPrivate(),
+        jwsString = new JWSAsymKeySigner(RawReader.ecKeyPair.getPrivate(),
             AsymSignatureAlgorithms.ECDSA_SHA256)
             .setCertificatePath(RawReader.ecCertPath)
             .sign(RawReader.dataToBeEncrypted, false);
-        new JwsAsymSignatureValidator(RawReader.ecKeyPair.getPublic())
-            .validate(new JwsDecoder(jwsString));
+        new JWSAsymSignatureValidator(RawReader.ecKeyPair.getPublic())
+            .validate(new JWSDecoder(jwsString));
 
-        jwsString = new JwsAsymKeySigner(RawReader.ecKeyPair.getPrivate(),
+        jwsString = new JWSAsymKeySigner(RawReader.ecKeyPair.getPrivate(),
             AsymSignatureAlgorithms.ECDSA_SHA256)
             .setPublicKey(RawReader.ecKeyPair.getPublic())
             .sign(RawReader.dataToBeEncrypted, false);
-        new JwsAsymSignatureValidator(RawReader.ecKeyPair.getPublic())
-            .validate(new JwsDecoder(jwsString));
+        new JWSAsymSignatureValidator(RawReader.ecKeyPair.getPublic())
+            .validate(new JWSDecoder(jwsString));
 
-        jwsString = new JwsAsymKeySigner(RawReader.ecKeyPair.getPrivate(),
+        jwsString = new JWSAsymKeySigner(RawReader.ecKeyPair.getPrivate(),
             AsymSignatureAlgorithms.ECDSA_SHA256)
             .setPublicKey(RawReader.ecKeyPair.getPublic())
             .sign(RawReader.dataToBeEncrypted, true);
-        new JwsAsymSignatureValidator(RawReader.ecKeyPair.getPublic())
-            .validate(new JwsDecoder(jwsString), RawReader.dataToBeEncrypted);
+        new JWSAsymSignatureValidator(RawReader.ecKeyPair.getPublic())
+            .validate(new JWSDecoder(jwsString), RawReader.dataToBeEncrypted);
 
-        jwsString = new JwsAsymKeySigner(RawReader.rsaKeyPair.getPrivate(),
+        jwsString = new JWSAsymKeySigner(RawReader.rsaKeyPair.getPrivate(),
             AsymSignatureAlgorithms.RSA_SHA256)
             .setPublicKey(RawReader.rsaKeyPair.getPublic())
             .sign(RawReader.dataToBeEncrypted, true);
-        new JwsAsymSignatureValidator(RawReader.rsaKeyPair.getPublic())
-            .validate(new JwsDecoder(jwsString), RawReader.dataToBeEncrypted);
+        new JWSAsymSignatureValidator(RawReader.rsaKeyPair.getPublic())
+            .validate(new JWSDecoder(jwsString), RawReader.dataToBeEncrypted);
 
-        jwsString = new JwsAsymKeySigner(RawReader.rsaKeyPair.getPrivate(),
+        jwsString = new JWSAsymKeySigner(RawReader.rsaKeyPair.getPrivate(),
             AsymSignatureAlgorithms.RSAPSS_SHA512)
             .setPublicKey(RawReader.rsaKeyPair.getPublic())
             .sign(RawReader.dataToBeEncrypted, true);
-        new JwsAsymSignatureValidator(RawReader.rsaKeyPair.getPublic())
-            .validate(new JwsDecoder(jwsString), RawReader.dataToBeEncrypted);
+        new JWSAsymSignatureValidator(RawReader.rsaKeyPair.getPublic())
+            .validate(new JWSDecoder(jwsString), RawReader.dataToBeEncrypted);
 
         try {
-            jwsString = new JwsAsymKeySigner(RawReader.ecKeyPair.getPrivate(),
+            jwsString = new JWSAsymKeySigner(RawReader.ecKeyPair.getPrivate(),
                 AsymSignatureAlgorithms.ECDSA_SHA256)
                 .setPublicKey(RawReader.ecKeyPair.getPublic())
                 .sign(RawReader.dataToBeEncrypted, true);
-            new JwsAsymSignatureValidator(RawReader.ecKeyPair.getPublic())
-                .validate(new JwsDecoder(jwsString), new byte[]{5,5});
+            new JWSAsymSignatureValidator(RawReader.ecKeyPair.getPublic())
+                .validate(new JWSDecoder(jwsString), new byte[]{5,5});
             fail("Bad data");
         } catch (Exception e) { Log.i("XXX",e.getMessage());}
 
         try {
-            jwsString = new JwsAsymKeySigner(RawReader.ecKeyPair.getPrivate(),
+            jwsString = new JWSAsymKeySigner(RawReader.ecKeyPair.getPrivate(),
                 AsymSignatureAlgorithms.ECDSA_SHA256)
                 .setPublicKey(RawReader.rsaKeyPair.getPublic())
                 .sign(RawReader.dataToBeEncrypted, false);
-            new JwsAsymSignatureValidator(RawReader.ecKeyPair.getPublic())
-                .validate(new JwsDecoder(jwsString));
+            new JWSAsymSignatureValidator(RawReader.ecKeyPair.getPublic())
+                .validate(new JWSDecoder(jwsString));
             fail("Bad data");
         } catch (Exception e) { Log.i("XXX",e.getMessage());}
     }
@@ -228,64 +228,62 @@ public class InstrumentedTest {
     public void signatures() throws Exception {
         RawReader.getJSONResource(R.raw.json_signature).getSignature(new JSONCryptoHelper.Options());
         String signature =
-                getData().setSignature(new JSONAsymKeySigner(RawReader.ecKeyPair.getPrivate(),
-                                                             RawReader.ecKeyPair.getPublic(),
-                                                             null)).toString();
+                getData().setSignature(new JSONAsymKeySigner(RawReader.ecKeyPair.getPrivate())
+                        .setPublicKey(RawReader.ecKeyPair.getPublic())).toString();
         JSONParser.parse(signature).getSignature(new JSONCryptoHelper.Options());
         signature =
-                getData().setSignature(new JSONAsymKeySigner(RawReader.rsaKeyPair.getPrivate(),
-                                                             RawReader.rsaKeyPair.getPublic(),
-                                                             null)).toString();
+                getData().setSignature(new JSONAsymKeySigner(RawReader.rsaKeyPair.getPrivate())
+                        .setPublicKey(RawReader.rsaKeyPair.getPublic())).toString();
         JSONParser.parse(signature).getSignature(new JSONCryptoHelper.Options());
 
         try {
-            JSONParser.parse(signature.replace("now", "then")).getSignature(new JSONCryptoHelper.Options());
+            JSONParser.parse(signature.replace("now", "then"))
+                    .getSignature(new JSONCryptoHelper.Options());
             fail("verify");
         } catch (Exception e) {
         }
+        signature = getData().setSignature(new JSONAsymKeySigner(RawReader.rsaKeyPair.getPrivate())
+                        .setPublicKey(RawReader.ecKeyPair.getPublic())).toString();
         try {
-            getData().setSignature(new JSONAsymKeySigner(RawReader.rsaKeyPair.getPrivate(),
-                                                         RawReader.ecKeyPair.getPublic(),
-                                                         null));
+            JSONParser.parse(signature).getSignature(new JSONCryptoHelper.Options());
             fail("rsa/ec key");
         } catch (Exception e) {
         }
+        signature = getData().setSignature(new JSONAsymKeySigner(RawReader.ecKeyPair.getPrivate())
+                    .setPublicKey(RawReader.rsaKeyPair.getPublic())).toString();
         try {
-            getData().setSignature(new JSONAsymKeySigner(RawReader.ecKeyPair.getPrivate(),
-                                                         RawReader.rsaKeyPair.getPublic(),
-                                                         null));
+            JSONParser.parse(signature).getSignature(new JSONCryptoHelper.Options());
             fail("ec/rsa key");
         } catch (Exception e) {
         }
         try {
-            getData().setSignature(new JSONAsymKeySigner(RawReader.ecKeyPair.getPrivate(),
-                                                         RawReader.ecKeyPair.getPublic(),
-                                                         null).setSignatureAlgorithm(AsymSignatureAlgorithms.RSA_SHA256));
+            getData().setSignature(new JSONAsymKeySigner(RawReader.ecKeyPair.getPrivate())
+                                                 .setPublicKey(RawReader.ecKeyPair.getPublic())
+                    .setAlgorithm(AsymSignatureAlgorithms.RSA_SHA256));
             fail("ec/rsa alg");
         } catch (Exception e) {
         }
 
         JSONObjectReader json = JSONParser.parse(
-                getData().setSignature(new JSONAsymKeySigner(RawReader.rsaKeyPair.getPrivate(),
-                        RawReader.rsaKeyPair.getPublic(),
-                        null)).toString());
+                getData().setSignature(new JSONAsymKeySigner(RawReader.rsaKeyPair.getPrivate())
+                        .setPublicKey(RawReader.rsaKeyPair.getPublic())).toString());
         json.removeProperty(JSONObjectWriter.SIGNATURE_DEFAULT_LABEL_JSON);
         assertTrue("data", json.toString().equals(getData().toString()));
         assertTrue("data", json.serializeToString(JSONOutputFormats.CANONICALIZED)
                 .equals(getData().serializeToString(JSONOutputFormats.CANONICALIZED)));
 
         signature =
-                getData().setSignature(new JSONSymKeySigner(RawReader.secretKey,
+                getData().setSignature(new JSONHmacSigner(RawReader.secretKey,
                                                             HmacAlgorithms.HMAC_SHA256)).toString();
         JSONParser.parse(signature)
                 .getSignature(new JSONCryptoHelper.Options()
                         .setPublicKeyOption(JSONCryptoHelper.PUBLIC_KEY_OPTIONS.FORBIDDEN))
-                .verify(new JSONSymKeyVerifier(RawReader.secretKey));
+                .verify(new JSONHmacVerifier(RawReader.secretKey));
         try {
             JSONParser.parse(signature.replace("now", "then"))
                     .getSignature(new JSONCryptoHelper.Options()
                         .setPublicKeyOption(JSONCryptoHelper.PUBLIC_KEY_OPTIONS.FORBIDDEN))
-                    .verify(new JSONSymKeyVerifier(RawReader.secretKey));
+                    .verify(new JSONHmacVerifier(RawReader.secretKey));
             fail("verify");
         } catch (Exception e) {
         }
@@ -328,7 +326,7 @@ public class InstrumentedTest {
 
         JSONObjectWriter signedData =
             new JSONObjectWriter(RawReader.getJSONResource(R.raw.json_data)).setSignature(
-                new JSONAsymKeySigner(keyPair.getPrivate(), keyPair.getPublic(), null));
+                new JSONAsymKeySigner(keyPair.getPrivate()).setPublicKey(keyPair.getPublic()));
         Log.i("SIGN", signedData.toString());
         JSONObjectReader reader =
                 JSONParser.parse(signedData.serializeToBytes(JSONOutputFormats.PRETTY_PRINT));
@@ -337,8 +335,8 @@ public class InstrumentedTest {
 
         signedData =
             new JSONObjectWriter(RawReader.getJSONResource(R.raw.json_data)).setSignature(
-                new JSONAsymKeySigner(keyPair.getPrivate(), keyPair.getPublic(), null)
-            .setSignatureAlgorithm(AsymSignatureAlgorithms.RSAPSS_SHA512));
+                new JSONAsymKeySigner(keyPair.getPrivate()).setPublicKey(keyPair.getPublic())
+            .setAlgorithm(AsymSignatureAlgorithms.RSAPSS_SHA512));
         Log.i("SIGN", signedData.toString());
         reader =
             JSONParser.parse(signedData.serializeToBytes(JSONOutputFormats.PRETTY_PRINT));
@@ -366,7 +364,8 @@ public class InstrumentedTest {
 
         signedData =
                 new JSONObjectWriter(RawReader.getJSONResource(R.raw.json_data)).setSignature(
-                        new JSONAsymKeySigner(keyPair.getPrivate(), keyPair.getPublic(), null));
+                        new JSONAsymKeySigner(keyPair.getPrivate())
+                            .setPublicKey(keyPair.getPublic()));
         Log.i("SIGN", signedData.toString());
         reader =
                 JSONParser.parse(signedData.serializeToBytes(JSONOutputFormats.PRETTY_PRINT));
@@ -375,12 +374,12 @@ public class InstrumentedTest {
 
         signedData =
                 new JSONObjectWriter(RawReader.getJSONResource(R.raw.json_data)).setSignature(
-                        new JSONAsymKeySigner(keyPair.getPrivate(), keyPair.getPublic(), null)
-                .setOutputPublicKeyInfo(false));
+                        new JSONAsymKeySigner(keyPair.getPrivate()));
         Log.i("SIGN", signedData.toString());
         reader =
                 JSONParser.parse(signedData.serializeToBytes(JSONOutputFormats.PRETTY_PRINT));
-        reader.getSignature(new JSONCryptoHelper.Options().setPublicKeyOption(JSONCryptoHelper.PUBLIC_KEY_OPTIONS.FORBIDDEN))
+        reader.getSignature(new JSONCryptoHelper.Options().setPublicKeyOption(
+                JSONCryptoHelper.PUBLIC_KEY_OPTIONS.FORBIDDEN))
                 .verify(new JSONAsymKeyVerifier(keyPair.getPublic()));
 
         keyStore.setEntry(
@@ -392,8 +391,7 @@ public class InstrumentedTest {
         signedData =
                 new JSONObjectWriter(RawReader.getJSONResource(R.raw.json_data)).setSignature(
                         new JSONX509Signer((PrivateKey)keyStore.getKey(KEY_2, null),
-                                           convert(keyStore.getCertificateChain(KEY_2)),
-                                           null));
+                                           convert(keyStore.getCertificateChain(KEY_2))));
         Log.i("CERTSIGN", signedData.toString());
         reader =
                 JSONParser.parse(signedData.serializeToBytes(JSONOutputFormats.PRETTY_PRINT));

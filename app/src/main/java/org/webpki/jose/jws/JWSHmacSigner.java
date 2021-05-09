@@ -18,36 +18,36 @@ package org.webpki.jose.jws;
 
 import java.io.IOException;
 
+import java.security.GeneralSecurityException;
+
 import org.webpki.crypto.HmacAlgorithms;
 
-import org.webpki.util.ArrayUtil;
-
 /**
- * JWS HMAC signature validator
+ * JWS HMAC signer
  */
-public class JwsHmacValidator extends JwsValidator {
+public class JWSHmacSigner extends JWSSigner {
     
+    HmacAlgorithms hmacAlgorithm;
     byte[] secretKey;
     
     /**
-     * Initialize validator.
+     * Initialize signer.
      * 
-     * Note that a validator object may be used any number of times
+     * Note that a signer object may be used any number of times
      * (assuming that the same parameters are valid).  It is also
      * thread-safe.
-     * @param secretKey The anticipated secret key
+     * @param secretKey The key to use
+     * @param algorithm HMAC Algorithm to use
+     * @throws IOException 
      */
-    public JwsHmacValidator(byte[] secretKey) {
+    public JWSHmacSigner(byte[] secretKey, HmacAlgorithms algorithm) throws IOException {
+        super(algorithm);
         this.secretKey = secretKey;
+        this.hmacAlgorithm = algorithm;
     }
 
     @Override
-    void validateObject(byte[] signedData, JwsDecoder jwsDecoder) throws IOException {
-        if (!ArrayUtil.compare(
-               ((HmacAlgorithms)jwsDecoder.signatureAlgorithm).digest(secretKey, 
-                                                                      signedData),
-                                                                      jwsDecoder.signature)) {
-            throw new IOException("HMAC signature validation error");
-        }
+    byte[] signObject(byte[] dataToBeSigned) throws IOException, GeneralSecurityException {
+        return hmacAlgorithm.digest(secretKey, dataToBeSigned);
     }
 }

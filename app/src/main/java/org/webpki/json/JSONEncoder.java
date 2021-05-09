@@ -1,5 +1,5 @@
 /*
- *  Copyright 2006-2020 WebPKI.org (http://webpki.org).
+ *  Copyright 2006-2021 WebPKI.org (http://webpki.org).
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -17,14 +17,13 @@
 package org.webpki.json;
 
 import java.io.IOException;
-import java.io.Serializable;
+
+import java.security.GeneralSecurityException;
 
 /**
  * Base class for java classes which are used for creating specific JSON object types.
  */
-public abstract class JSONEncoder implements Serializable {
-
-    private static final long serialVersionUID = 1L;
+public abstract class JSONEncoder {
 
     JSONObject root;  // Of written document
 
@@ -38,8 +37,9 @@ public abstract class JSONEncoder implements Serializable {
      *
      * @param wr A JSON writer
      * @throws IOException For any underlying error
+     * @throws GeneralSecurityException 
      */
-    protected abstract void writeJSONData(JSONObjectWriter wr) throws IOException;
+    protected abstract void writeJSONData(JSONObjectWriter wr) throws IOException, GeneralSecurityException;
 
     /**
      * Emulation of XML namespace
@@ -61,8 +61,10 @@ public abstract class JSONEncoder implements Serializable {
      * @param outputFormat The wanted formatting
      * @return Document in JSON [binary] format
      * @throws IOException For any underlying error
+     * @throws GeneralSecurityException 
      */
-    public byte[] serializeJSONDocument(JSONOutputFormats outputFormat) throws IOException {
+    public byte[] serializeJSONDocument(JSONOutputFormats outputFormat) 
+            throws IOException, GeneralSecurityException {
         JSONObjectWriter wr = new JSONObjectWriter();
         root = wr.root;
         wr.setString(JSONDecoderCache.CONTEXT_JSON, getContext());

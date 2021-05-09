@@ -1,5 +1,5 @@
 /*
- *  Copyright 2006-2020 WebPKI.org (http://webpki.org).
+ *  Copyright 2006-2021 WebPKI.org (http://webpki.org).
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -393,7 +393,7 @@ class EncryptionCore {
      * @param encryptedKeyData For ECDH+KW based operations only
      * @return Shared secret
      * @throws GeneralSecurityException &nbsp;
-     * @throws IOException &nbsp;
+     * @throws IOException
      */
     public static byte[] receiverKeyAgreement(KeyEncryptionAlgorithms keyEncryptionAlgorithm,
                                               DataEncryptionAlgorithms dataEncryptionAlgorithm,
@@ -427,7 +427,7 @@ class EncryptionCore {
      * @param staticKey The receiver's (usually static) public key
      * @return A composite object including the (plain text) data encryption key
      * @throws GeneralSecurityException &nbsp;
-     * @throws IOException &nbsp;
+     * @throws IOException
      */
     static AsymmetricEncryptionResult
             senderKeyAgreement(byte[] dataEncryptionKey,

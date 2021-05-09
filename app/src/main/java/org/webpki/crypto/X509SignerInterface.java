@@ -1,5 +1,5 @@
 /*
- *  Copyright 2006-2020 WebPKI.org (http://webpki.org).
+ *  Copyright 2006-2021 WebPKI.org (http://webpki.org).
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -19,8 +19,22 @@ package org.webpki.crypto;
 
 import java.io.IOException;
 
-public interface SymKeyVerifierInterface {
+import java.security.GeneralSecurityException;
+import java.security.cert.X509Certificate;
 
-    public boolean verifyData(byte[] data, byte[] digest, HmacAlgorithms algorithm, String keyId) throws IOException;
+/**
+ * Common interface for X509 signature creation.
+ *
+ */
+public interface X509SignerInterface extends AsymKeySignerInterface {
+
+    /**
+     * Get certificate path.
+     * 
+     * @return Certificate path
+     * @throws IOException
+     * @throws GeneralSecurityException
+     */
+    X509Certificate[] getCertificatePath() throws IOException, GeneralSecurityException;
 
 }

@@ -1,5 +1,5 @@
 /*
- *  Copyright 2006-2020 WebPKI.org (http://webpki.org).
+ *  Copyright 2006-2021 WebPKI.org (http://webpki.org).
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -23,12 +23,10 @@ import java.io.IOException;
  */
 public class JSONSymKeyEncrypter extends JSONEncrypter {
 
-    private static final long serialVersionUID = 1L;
-
      /**
      * Constructor for JCE based solutions.
      * @param contentEncryptionKey Symmetric key
-     * @throws IOException &nbsp;
+     * @throws IOException
      */
     public JSONSymKeyEncrypter(byte[] contentEncryptionKey) throws IOException {
         this.contentEncryptionKey = contentEncryptionKey;

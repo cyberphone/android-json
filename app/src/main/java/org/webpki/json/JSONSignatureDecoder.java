@@ -1,5 +1,5 @@
 /*
- *  Copyright 2006-2020 WebPKI.org (http://webpki.org).
+ *  Copyright 2006-2021 WebPKI.org (http://webpki.org).
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -17,7 +17,6 @@
 package org.webpki.json;
 
 import java.io.IOException;
-import java.io.Serializable;
 
 import java.math.BigInteger;
 
@@ -51,9 +50,7 @@ import org.webpki.crypto.SignatureWrapper;
 /**
  * Decoder for JSF signatures.
  */
-public class JSONSignatureDecoder implements Serializable {
-
-    private static final long serialVersionUID = 1L;
+public class JSONSignatureDecoder {
 
     SignatureAlgorithms signatureAlgorithm;
 
@@ -76,7 +73,8 @@ public class JSONSignatureDecoder implements Serializable {
     JSONSignatureDecoder(JSONObjectReader signedData,
                          JSONObjectReader innerSignatureObject,
                          JSONObjectReader outerSignatureObject,
-                         JSONCryptoHelper.Options options) throws IOException {
+                         JSONCryptoHelper.Options options) throws IOException,
+                                                                  GeneralSecurityException {
         this.options = options;
         algorithmString = innerSignatureObject.getString(JSONCryptoHelper.ALGORITHM_JSON);
         keyId = options.getKeyId(innerSignatureObject);
@@ -311,7 +309,7 @@ public class JSONSignatureDecoder implements Serializable {
                           JSONSignatureTypes.ASYMMETRIC_KEY : JSONSignatureTypes.SYMMETRIC_KEY;
     }
 
-    public void verify(JSONVerifier verifier) throws IOException {
+    public void verify(JSONVerifier verifier) throws IOException, GeneralSecurityException {
         checkRequest(verifier.signatureType);
         verifier.verify(this);
     }

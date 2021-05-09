@@ -1,5 +1,5 @@
 /*
- *  Copyright 2006-2020 WebPKI.org (http://webpki.org).
+ *  Copyright 2006-2021 WebPKI.org (http://webpki.org).
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -19,14 +19,11 @@ package org.webpki.crypto;
 
 import java.io.IOException;
 
-/**
- * Common interface for HMAC signatures.
- *
- */
-public interface SymKeySignerInterface {
+import java.security.GeneralSecurityException;
 
-    public byte[] signData(byte[] data, HmacAlgorithms algorithm) throws IOException;
+public interface HmacVerifierInterface {
 
-    public HmacAlgorithms getHmacAlgorithm() throws IOException;
+    public boolean verifyData(byte[] data, byte[] digest, HmacAlgorithms algorithm, String keyId) 
+            throws IOException, GeneralSecurityException;
 
 }

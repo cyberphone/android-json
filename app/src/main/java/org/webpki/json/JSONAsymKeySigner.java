@@ -1,5 +1,5 @@
 /*
- *  Copyright 2006-2020 WebPKI.org (http://webpki.org).
+ *  Copyright 2006-2021 WebPKI.org (http://webpki.org).
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -34,8 +34,6 @@ import org.webpki.crypto.SignatureWrapper;
  */
 public class JSONAsymKeySigner extends JSONSigner {
 
-    private static final long serialVersionUID = 1L;
-
     AsymSignatureAlgorithms algorithm;
 
     AsymKeySignerInterface signer;
@@ -44,71 +42,74 @@ public class JSONAsymKeySigner extends JSONSigner {
 
     /**
      * Constructor for custom crypto solutions.
+     * 
      * @param signer Handle to implementation
-     * @throws IOException &nbsp;
+     * @throws IOException
+     * @throws GeneralSecurityException 
      */
-    public JSONAsymKeySigner(AsymKeySignerInterface signer) throws IOException {
+    public JSONAsymKeySigner(AsymKeySignerInterface signer) throws IOException,
+                                                                   GeneralSecurityException {
         this.signer = signer;
-        publicKey = signer.getPublicKey();
-        algorithm = KeyAlgorithms.getKeyAlgorithm(publicKey).getRecommendedSignatureAlgorithm();
+        this.algorithm = signer.getAlgorithm();
     }
-
+    
     /**
      * Constructor for JCE based solutions.
+
      * @param privateKey Private key
-     * @param publicKey Public key
-     * @param provider Optional JCE provider or null
-     * @throws IOException &nbsp;
+     * @throws IOException
+     * @throws GeneralSecurityException 
      */
-    public JSONAsymKeySigner(final PrivateKey privateKey,
-                             final PublicKey publicKey,
-                             final String provider) throws IOException {
-        this(new AsymKeySignerInterface() {
+    public JSONAsymKeySigner(PrivateKey privateKey) throws IOException, GeneralSecurityException {
+        algorithm = KeyAlgorithms.getKeyAlgorithm(privateKey).getRecommendedSignatureAlgorithm();
+        signer = new AsymKeySignerInterface() {
 
             @Override
-            public byte[] signData(byte[] data,
-                                   AsymSignatureAlgorithms algorithm) throws IOException {
-                try {
-                    return new SignatureWrapper(algorithm, 
-                                                privateKey, 
-                                                provider)
-                                   .update(data)
-                                   .sign();
-                } catch (GeneralSecurityException e) {
-                    throw new IOException(e);
-                }
+            public byte[] signData(byte[] data) throws IOException, GeneralSecurityException {
+                return new SignatureWrapper(algorithm, privateKey, provider)
+                               .update(data)
+                               .sign();
             }
 
             @Override
-            public PublicKey getPublicKey() throws IOException {
-                 return publicKey;
+            public AsymSignatureAlgorithms getAlgorithm() throws IOException,
+                                                                 GeneralSecurityException {
+                return algorithm;
             }
-            
-        });
+          
+        };
     }
 
-    public JSONAsymKeySigner setSignatureAlgorithm(AsymSignatureAlgorithms algorithm) {
-        this.algorithm = algorithm;
+    public JSONAsymKeySigner setPublicKey(PublicKey publicKey) {
+        this.publicKey = publicKey;
         return this;
     }
 
+    public JSONAsymKeySigner setAlgorithm(AsymSignatureAlgorithms algorithm) 
+            throws IOException, GeneralSecurityException {
+        this.algorithm = algorithm;
+        return this;
+    }
+    
     public JSONAsymKeySigner setAlgorithmPreferences(AlgorithmPreferences algorithmPreferences) {
         this.algorithmPreferences = algorithmPreferences;
         return this;
     }
 
     @Override
-    SignatureAlgorithms getAlgorithm() {
-        return algorithm;
+    SignatureAlgorithms getAlgorithm() throws IOException, GeneralSecurityException {
+        return signer.getAlgorithm();
     }
 
     @Override
-    byte[] signData(byte[] data) throws IOException {
-        return signer.signData(data, algorithm);
+    byte[] signData(byte[] data) throws IOException, GeneralSecurityException {
+        return signer.signData(data);
     }
 
     @Override
     void writeKeyData(JSONObjectWriter wr) throws IOException {
-        wr.setPublicKey(publicKey, algorithmPreferences);
+        if (publicKey != null) {
+            wr.setPublicKey(publicKey, algorithmPreferences);
+        }
     }
 }

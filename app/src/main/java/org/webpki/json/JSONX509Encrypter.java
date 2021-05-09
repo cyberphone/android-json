@@ -1,5 +1,5 @@
 /*
- *  Copyright 2006-2020 WebPKI.org (http://webpki.org).
+ *  Copyright 2006-2021 WebPKI.org (http://webpki.org).
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@ package org.webpki.json;
 
 import java.io.IOException;
 
+import java.security.GeneralSecurityException;
 import java.security.cert.X509Certificate;
 
 /**
@@ -25,15 +26,13 @@ import java.security.cert.X509Certificate;
  */
 public class JSONX509Encrypter extends JSONEncrypter {
 
-    private static final long serialVersionUID = 1L;
-    
     X509Certificate[] certificatePath;
 
     /**
      * Constructor for JCE based solutions.
      * @param certificatePath Certificate path used for encrypting the key
      * @param keyEncryptionAlgorithm The algorithm used for encrypting the key
-     * @throws IOException &nbsp;
+     * @throws IOException
      */
     public JSONX509Encrypter(X509Certificate[] certificatePath,
                              KeyEncryptionAlgorithms keyEncryptionAlgorithm) throws IOException {
@@ -43,7 +42,7 @@ public class JSONX509Encrypter extends JSONEncrypter {
     }
 
     @Override
-    void writeKeyData(JSONObjectWriter wr) throws IOException {
+    void writeKeyData(JSONObjectWriter wr) throws IOException, GeneralSecurityException {
         wr.setCertificatePath(certificatePath);
     }
 }
