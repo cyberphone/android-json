@@ -17,6 +17,9 @@ import org.junit.runner.RunWith;
 import org.webpki.crypto.AsymSignatureAlgorithms;
 import org.webpki.crypto.HmacAlgorithms;
 
+import org.webpki.crypto.encryption.ContentEncryptionAlgorithms;
+import org.webpki.crypto.encryption.KeyEncryptionAlgorithms;
+
 import org.webpki.jose.jws.JWSAsymKeySigner;
 import org.webpki.jose.jws.JWSAsymSignatureValidator;
 import org.webpki.jose.jws.JWSDecoder;
@@ -32,9 +35,7 @@ import org.webpki.json.JSONObjectWriter;
 import org.webpki.json.JSONParser;
 import org.webpki.json.JSONHmacVerifier;
 import org.webpki.json.JSONAsymKeyEncrypter;
-import org.webpki.json.DataEncryptionAlgorithms;
 import org.webpki.json.JSONX509Signer;
-import org.webpki.json.KeyEncryptionAlgorithms;
 
 import org.webpki.util.ArrayUtil;
 
@@ -92,32 +93,32 @@ public class InstrumentedTest {
 
         keys.add(new JSONDecryptionDecoder.DecryptionKeyHolder(RawReader.ecKeyPair.getPublic(),
                 RawReader.ecKeyPair.getPrivate(),
-                KeyEncryptionAlgorithms.JOSE_ECDH_ES_ALG_ID,
+                KeyEncryptionAlgorithms.ECDH_ES,
                 RawReader.ecKeyId));
 
         keys.add(new JSONDecryptionDecoder.DecryptionKeyHolder(RawReader.ecKeyPair.getPublic(),
                 RawReader.ecKeyPair.getPrivate(),
-                KeyEncryptionAlgorithms.JOSE_ECDH_ES_A128KW_ALG_ID,
+                KeyEncryptionAlgorithms.ECDH_ES_A128KW,
                 RawReader.ecKeyId));
 
         keys.add(new JSONDecryptionDecoder.DecryptionKeyHolder(RawReader.ecKeyPair.getPublic(),
                 RawReader.ecKeyPair.getPrivate(),
-                KeyEncryptionAlgorithms.JOSE_ECDH_ES_A192KW_ALG_ID,
+                KeyEncryptionAlgorithms.ECDH_ES_A192KW,
                 RawReader.ecKeyId));
 
         keys.add(new JSONDecryptionDecoder.DecryptionKeyHolder(RawReader.ecKeyPair.getPublic(),
                 RawReader.ecKeyPair.getPrivate(),
-                KeyEncryptionAlgorithms.JOSE_ECDH_ES_A256KW_ALG_ID,
+                KeyEncryptionAlgorithms.ECDH_ES_A256KW,
                 RawReader.ecKeyId));
 
         keys.add(new JSONDecryptionDecoder.DecryptionKeyHolder(RawReader.rsaKeyPair.getPublic(),
                 RawReader.rsaKeyPair.getPrivate(),
-                KeyEncryptionAlgorithms.JOSE_RSA_OAEP_256_ALG_ID,
+                KeyEncryptionAlgorithms.RSA_OAEP_256,
                 RawReader.rsaKeyId));
 
         keys.add(new JSONDecryptionDecoder.DecryptionKeyHolder(RawReader.rsaKeyPair.getPublic(),
                 RawReader.rsaKeyPair.getPrivate(),
-                KeyEncryptionAlgorithms.JOSE_RSA_OAEP_ALG_ID,
+                KeyEncryptionAlgorithms.RSA_OAEP,
                 RawReader.rsaKeyId));
 
         decrypt(R.raw.ecdh_es_json, true);
@@ -128,7 +129,7 @@ public class InstrumentedTest {
 
         for (int i = 0; i < 2; i++) {
             for (KeyEncryptionAlgorithms keyEncryptionAlgorithm : KeyEncryptionAlgorithms.values()) {
-                for (DataEncryptionAlgorithms dataEncryptionAlgorithm : DataEncryptionAlgorithms.values()) {
+                for (ContentEncryptionAlgorithms dataEncryptionAlgorithm : ContentEncryptionAlgorithms.values()) {
                     JSONObjectWriter writer = JSONObjectWriter.createEncryptionObject(
                             RawReader.dataToBeEncrypted,
                             dataEncryptionAlgorithm,

@@ -231,16 +231,16 @@ public class JSONObjectReader implements Cloneable {
      * Note: Since JSON does not support a native dateTime 
      * type, this method builds on <i>mapping</i>.</p>
      * @param name Property
-     * @param format Required input format
+     * @param constraints Required input format
      * @return Java <code>GregorianCalendar</code>
      * @throws IOException
      * @see org.webpki.util.ISODateTime#parseDateTime(String, EnumSet)
      * @see JSONObjectWriter#setDateTime(String, GregorianCalendar, EnumSet)
      */
     public GregorianCalendar getDateTime(String name, 
-                                         EnumSet<ISODateTime.DatePatterns> format) 
+                                         EnumSet<ISODateTime.DatePatterns> constraints) 
     throws IOException {
-        return ISODateTime.parseDateTime(getString(name), format);
+        return ISODateTime.parseDateTime(getString(name), constraints);
     }
 
     /**
@@ -453,7 +453,8 @@ public class JSONObjectReader implements Cloneable {
     String[] getSimpleArray(String name, JSONTypes expectedType) throws IOException {
         ArrayList<String> array = new ArrayList<>();
         @SuppressWarnings("unchecked")
-        ArrayList<JSONValue> arrayElements = ((ArrayList<JSONValue>) getProperty(name, JSONTypes.ARRAY).value);
+        ArrayList<JSONValue> arrayElements = 
+            ((ArrayList<JSONValue>) getProperty(name, JSONTypes.ARRAY).value);
         for (JSONValue value : arrayElements) {
             JSONTypes.compatibilityTest(expectedType, value);
             value.readFlag = true;
@@ -703,20 +704,23 @@ public class JSONObjectReader implements Cloneable {
      * @return An object which can be used to retrieve the original (unencrypted) data 
      * @throws IOException
      * @throws GeneralSecurityException 
-     * @see org.webpki.json.JSONObjectWriter#createEncryptionObject(byte[],DataEncryptionAlgorithms,JSONEncrypter)
+     * @see org.webpki.json.JSONObjectWriter#createEncryptionObject(byte[],ContentEncryptionAlgorithms,JSONEncrypter)
      * @see org.webpki.json.JSONCryptoHelper.Options
      */
     public JSONDecryptionDecoder getEncryptionObject(JSONCryptoHelper.Options options) 
             throws IOException, GeneralSecurityException {
         options.initializeOperation(true);
         if (hasProperty(JSONCryptoHelper.RECIPIENTS_JSON)) {
-            throw new IOException("Please use \"getEncryptionObjects()\" for multiple encryption objects");
+            throw new IOException(
+                    "Please use \"getEncryptionObjects()\" for multiple encryption objects");
         }
         boolean keyEncryption = hasProperty(JSONCryptoHelper.KEY_ENCRYPTION_JSON);
-        JSONDecryptionDecoder.Holder holder = new JSONDecryptionDecoder.Holder(options, this, keyEncryption);
-        return new JSONDecryptionDecoder(holder, 
-                                         keyEncryption ? getObject(JSONCryptoHelper.KEY_ENCRYPTION_JSON) : this,
-                                         true);
+        JSONDecryptionDecoder.Holder holder = 
+                new JSONDecryptionDecoder.Holder(options, this, keyEncryption);
+        return new JSONDecryptionDecoder(
+                holder, 
+                keyEncryption ? getObject(JSONCryptoHelper.KEY_ENCRYPTION_JSON) : this,
+                true);
     }
 
     /**
@@ -728,7 +732,7 @@ public class JSONObjectReader implements Cloneable {
      * @return An object which can be used to retrieve the original (unencrypted) data 
      * @throws IOException
      * @throws GeneralSecurityException 
-     * @see org.webpki.json.JSONObjectWriter#createEncryptionObject(byte[],DataEncryptionAlgorithms,JSONEncrypter)
+     * @see org.webpki.json.JSONObjectWriter#createEncryptionObject(byte[],ContentEncryptionAlgorithms,JSONEncrypter)
      * @see org.webpki.json.JSONCryptoHelper.Options
      */
     public ArrayList<JSONDecryptionDecoder> getEncryptionObjects(JSONCryptoHelper.Options options)

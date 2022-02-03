@@ -37,6 +37,9 @@ import androidx.appcompat.app.AppCompatActivity;
 import org.webpki.crypto.HmacAlgorithms;
 import org.webpki.crypto.AlgorithmPreferences;
 
+import org.webpki.crypto.encryption.ContentEncryptionAlgorithms;
+import org.webpki.crypto.encryption.KeyEncryptionAlgorithms;
+
 import org.webpki.json.JSONAsymKeySigner;
 import org.webpki.json.JSONObjectReader;
 import org.webpki.json.JSONObjectWriter;
@@ -49,9 +52,6 @@ import org.webpki.json.JSONX509Signer;
 import org.webpki.json.JSONCryptoHelper;
 import org.webpki.json.JSONAsymKeyEncrypter;
 import org.webpki.json.JSONSymKeyEncrypter;
-
-import org.webpki.json.DataEncryptionAlgorithms;
-import org.webpki.json.KeyEncryptionAlgorithms;
 
 import org.webpki.util.Base64URL;
 
@@ -367,14 +367,14 @@ public class MainActivity extends AppCompatActivity {
                     PublicKey publicKey = (encType == ENC_TYPES.RSA_KEY ?
                                                    RawReader.rsaKeyPair : RawReader.ecKeyPair).getPublic();
                     writer = JSONObjectWriter.createEncryptionObject(unencryptedData,
-                                                                     DataEncryptionAlgorithms.JOSE_A128GCM_ALG_ID,
+                                                                     ContentEncryptionAlgorithms.A128GCM,
                                                                      new JSONAsymKeyEncrypter(publicKey,
                                                                      encType == ENC_TYPES.RSA_KEY ?
-                             KeyEncryptionAlgorithms.JOSE_RSA_OAEP_256_ALG_ID : KeyEncryptionAlgorithms.JOSE_ECDH_ES_A256KW_ALG_ID));
+                             KeyEncryptionAlgorithms.RSA_OAEP_256 : KeyEncryptionAlgorithms.ECDH_ES_A256KW));
                     break;
                 default:
                     writer = JSONObjectWriter.createEncryptionObject(unencryptedData,
-                                                                     DataEncryptionAlgorithms.JOSE_A128CBC_HS256_ALG_ID,
+                                                                     ContentEncryptionAlgorithms.A128CBC_HS256,
                                                                      new JSONSymKeyEncrypter(RawReader.secretKey).setKeyId(RawReader.secretKeyId));
             }
             decryptData(writer.toString());

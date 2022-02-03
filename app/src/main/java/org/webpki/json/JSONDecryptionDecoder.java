@@ -27,6 +27,10 @@ import java.security.cert.X509Certificate;
 import java.util.LinkedHashMap;
 import java.util.List;
 
+import org.webpki.crypto.encryption.EncryptionCore;
+import org.webpki.crypto.encryption.ContentEncryptionAlgorithms;
+import org.webpki.crypto.encryption.KeyEncryptionAlgorithms;
+
 ////////////////////////////////////////////////////////////////////////////////////
 // JEF is effectively a "remake" of of JWE.  Why a remake?  Because the           //
 // encryption system (naturally) borrows heavily from JSF including clear text    //
@@ -54,12 +58,12 @@ public class JSONDecryptionDecoder {
         byte[] tag;
         byte[] encryptedData;
         
-        DataEncryptionAlgorithms dataEncryptionAlgorithm;
+        ContentEncryptionAlgorithms contentEncryptionAlgorithm;
         JSONObjectReader globalEncryptionObject;
 
         Holder (JSONCryptoHelper.Options options, 
                 JSONObjectReader globalEncryptionObject,
-                boolean keyEncryption) throws IOException {
+                boolean keyEncryption) throws IOException, GeneralSecurityException {
             globalEncryptionObject.clearReadFlags();
             this.options = options;
             this.globalEncryptionObject = globalEncryptionObject;
@@ -88,7 +92,7 @@ public class JSONDecryptionDecoder {
             ////////////////////////////////////////////////////////////////////////////////////
 
             // Collect mandatory elements
-            dataEncryptionAlgorithm = DataEncryptionAlgorithms
+            contentEncryptionAlgorithm = ContentEncryptionAlgorithms
                     .getAlgorithmFromId(globalEncryptionObject.getString(
                             JSONCryptoHelper.ALGORITHM_JSON));
             iv = globalEncryptionObject.getBinary(JSONCryptoHelper.IV_JSON);
@@ -135,8 +139,8 @@ public class JSONDecryptionDecoder {
         return keyId;
     }
 
-    public DataEncryptionAlgorithms getDataEncryptionAlgorithm() {
-        return holder.dataEncryptionAlgorithm;
+    public ContentEncryptionAlgorithms getContentEncryptionAlgorithm() {
+        return holder.contentEncryptionAlgorithm;
     }
 
     public KeyEncryptionAlgorithms getKeyEncryptionAlgorithm() {
@@ -202,13 +206,14 @@ public class JSONDecryptionDecoder {
         }
     }
 
-    private byte[] localDecrypt(byte[] dataDecryptionKey) throws IOException, GeneralSecurityException {
-        return EncryptionCore.dataDecryption(holder.dataEncryptionAlgorithm,
-                                             dataDecryptionKey,
-                                             holder.encryptedData,
-                                             holder.iv,
-                                             holder.authenticatedData,
-                                             holder.tag);
+    private byte[] localDecrypt(byte[] dataDecryptionKey) 
+            throws IOException, GeneralSecurityException {
+        return EncryptionCore.contentDecryption(holder.contentEncryptionAlgorithm,
+                                                dataDecryptionKey,
+                                                holder.encryptedData,
+                                                holder.iv,
+                                                holder.authenticatedData,
+                                                holder.tag);
     }
 
     /**
@@ -216,7 +221,7 @@ public class JSONDecryptionDecoder {
      * @param dataDecryptionKey Symmetric key
      * @return Decrypted data
      * @throws IOException
-     * @throws GeneralSecurityException &nbsp;
+     * @throws GeneralSecurityException
      */
     public byte[] getDecryptedData(byte[] dataDecryptionKey) throws IOException, 
                                                                     GeneralSecurityException {
@@ -229,7 +234,7 @@ public class JSONDecryptionDecoder {
      * @param privateKey The private key
      * @return Decrypted data
      * @throws IOException
-     * @throws GeneralSecurityException &nbsp;
+     * @throws GeneralSecurityException
      */
     public byte[] getDecryptedData(PrivateKey privateKey) throws IOException, 
                                                                  GeneralSecurityException {
@@ -239,8 +244,9 @@ public class JSONDecryptionDecoder {
                                              encryptedKeyData,
                                              privateKey)
                                                            :
-                EncryptionCore.receiverKeyAgreement(keyEncryptionAlgorithm,
-                                                    holder.dataEncryptionAlgorithm,
+                EncryptionCore.receiverKeyAgreement(false,
+                                                    keyEncryptionAlgorithm,
+                                                    holder.contentEncryptionAlgorithm,
                                                     ephemeralPublicKey,
                                                     privateKey,
                                                     encryptedKeyData));
@@ -251,7 +257,7 @@ public class JSONDecryptionDecoder {
      * @param decryptionKeys Collection
      * @return Decrypted data
      * @throws IOException
-     * @throws GeneralSecurityException &nbsp;
+     * @throws GeneralSecurityException
      */
     public byte[] getDecryptedData(List<DecryptionKeyHolder> decryptionKeys)
     throws IOException, GeneralSecurityException {
@@ -312,7 +318,7 @@ public class JSONDecryptionDecoder {
     }
 
     static void keyWrapCheck(KeyEncryptionAlgorithms keyEncryptionAlgorithm) throws IOException {
-        if (!keyEncryptionAlgorithm.keyWrap) {
+        if (!keyEncryptionAlgorithm.isKeyWrap()) {
             throw new IOException("Multiple encryptions only permitted for key wrapping schemes");
         }
     }

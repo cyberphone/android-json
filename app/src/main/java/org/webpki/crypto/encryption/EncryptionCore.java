@@ -14,7 +14,7 @@
  *  limitations under the License.
  *
  */
-package org.webpki.json;
+package org.webpki.crypto.encryption;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -47,17 +47,19 @@ import org.webpki.crypto.KeyAlgorithms;
 import org.webpki.util.ArrayUtil;
 
 /**
- * Core JEF (JSON Encryption Format) class.
- * Implements a subset of the RFC 7516 (JWE) algorithms.
+ * Core JOSE and COSE encryption support.
+ *
+ * Implements a subset of the RFC 7516 (JWE) and RFC 8152 (COSE) algorithms.
  * 
- * Source configured for Android. 
+ * Source configured for Android.
+ * Note that the Android version does currently not support OKP.
  */
-class EncryptionCore {
+public class EncryptionCore {
 
     /**
      * Return object for symmetric key encryptions.
      */
-    static class SymmetricEncryptionResult {
+    public static class SymmetricEncryptionResult {
         byte[] tag;
         byte[] cipherText;
 
@@ -66,11 +68,11 @@ class EncryptionCore {
             this.cipherText = cipherText;
         }
 
-        byte[] getTag() {
+        public byte[] getTag() {
             return tag;
         }
 
-        byte[] getCipherText() {
+        public byte[] getCipherText() {
             return cipherText;
         }
     }
@@ -78,29 +80,29 @@ class EncryptionCore {
     /**
      * Return object for ECDH and RSA encryptions.
      */
-    static class AsymmetricEncryptionResult {
+    public static class AsymmetricEncryptionResult {
 
-        private byte[] dataEncryptionKey;
+        private byte[] contentEncryptionKey;
         private byte[] encryptedKeyData;
         private PublicKey ephemeralKey;
 
-        AsymmetricEncryptionResult(byte[] dataEncryptionKey,
+        AsymmetricEncryptionResult(byte[] contentEncryptionKey,
                                    byte[] encryptedKeyData,
                                    PublicKey ephemeralKey) {
-            this.dataEncryptionKey = dataEncryptionKey;
+            this.contentEncryptionKey = contentEncryptionKey;
             this.encryptedKeyData = encryptedKeyData;
             this.ephemeralKey = ephemeralKey;
         }
 
-        byte[] getDataEncryptionKey() {
-            return dataEncryptionKey;
+        public byte[] getContentEncryptionKey() {
+            return contentEncryptionKey;
         }
 
-        byte[] getEncryptedKeyData() {
+        public byte[] getEncryptedKeyData() {
             return encryptedKeyData;
         }
 
-        PublicKey getEphemeralKey() {
+        public PublicKey getEphemeralKey() {
             return ephemeralKey;
         }
     }
@@ -108,24 +110,27 @@ class EncryptionCore {
     private EncryptionCore() {} // Static and final class
     
     // AES CBC static
-    static final int    AES_CBC_IV_LENGTH        = 16; 
-    static final String AES_CBC_JCENAME          = "AES/CBC/PKCS5Padding";
+    static final int    AES_CBC_IV_LENGTH   = 16; 
+    static final String AES_CBC_JCENAME     = "AES/CBC/PKCS5Padding";
 
     // AES GCM static
-    static final int    AES_GCM_IV_LENGTH        = 12;
-    static final int    AES_GCM_TAG_LENGTH       = 16;
-    static final String AES_GCM_JCENAME          = "AES/GCM/NoPadding";
+    static final int    AES_GCM_IV_LENGTH   = 12;
+    static final int    AES_GCM_TAG_LENGTH  = 16;
+    static final String AES_GCM_JCENAME     = "AES/GCM/NoPadding";
 
     // AES Key Wrap static
-    static final String AES_KEY_WRAP_JCENAME      = "AESWrap";
+    static final String AES_KEY_WRAP_JCENAME = "AESWrap";
 
-    // NIST Concat KDF static
-    static final String CONCAT_KDF_DIGEST_JCENAME = "SHA-256";
-    static final int    CONCAT_KDF_DIGEST_LENGTH  = 32;
+    // NIST Concat KDF and HKDF static
+    static final String HASH_DIGEST_JCENAME  = "SHA-256";
+    static final String HMAC_DIGEST_JCENAME  = "HMACSHA256";
+    static final int    KDF_DIGEST_LENGTH    = 32;
+    static final byte[] HKDF_NO_SALT         = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+                                                0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
     
     // RSA OAEP
-    static final String JOSE_RSA_OAEP_JCENAME     = "RSA/ECB/OAEPWithSHA-1AndMGF1Padding";
-    static final String JOSE_RSA_OAEP_256_JCENAME = "RSA/ECB/OAEPWithSHA-256AndMGF1Padding";
+    static final String RSA_OAEP_JCENAME     = "RSA/ECB/OAEPWithSHA-1AndMGF1Padding";
+    static final String RSA_OAEP_256_JCENAME = "RSA/ECB/OAEPWithSHA-256AndMGF1Padding";
 
     private static Cipher getAesCipher(String algorithm) throws GeneralSecurityException {
         return Cipher.getInstance(algorithm);
@@ -135,15 +140,15 @@ class EncryptionCore {
                                  byte[] cipherText,
                                  byte[] iv,
                                  byte[] authData,
-                                 DataEncryptionAlgorithms dataEncryptionAlgorithm) 
+                                 ContentEncryptionAlgorithms contentEncryptionAlgorithm) 
     throws GeneralSecurityException {
-        int tagLength = dataEncryptionAlgorithm.tagLength;
+        int tagLength = contentEncryptionAlgorithm.tagLength;
         byte[] al = new byte[8];
         int value = authData.length * 8;
         for (int q = 24, i = 4; q >= 0; q -= 8, i++) {
             al[i] = (byte) (value >>> q);
         }
-        Mac mac = Mac.getInstance(dataEncryptionAlgorithm.jceNameOfTagHmac);
+        Mac mac = Mac.getInstance(contentEncryptionAlgorithm.jceNameOfTagHmac);
         mac.init(new SecretKeySpec(key, 0, tagLength, "RAW"));
         mac.update(authData);
         mac.update(iv);
@@ -158,11 +163,13 @@ class EncryptionCore {
                                      byte[] key, 
                                      byte[] iv, 
                                      byte[] data, 
-                                     DataEncryptionAlgorithms dataEncryptionAlgorithm)
+                                     ContentEncryptionAlgorithms contentEncryptionAlgorithm)
     throws GeneralSecurityException {
         Cipher cipher = getAesCipher(AES_CBC_JCENAME);
-        int aesKeyLength = dataEncryptionAlgorithm.keyLength / 2;
-        cipher.init(mode, new SecretKeySpec(key, aesKeyLength, aesKeyLength, "AES"), new IvParameterSpec(iv));
+        int aesKeyLength = contentEncryptionAlgorithm.keyLength / 2;
+        cipher.init(mode,
+                    new SecretKeySpec(key, aesKeyLength, aesKeyLength, "AES"),
+                    new IvParameterSpec(iv));
         return cipher.doFinal(data);
     }
 
@@ -170,7 +177,9 @@ class EncryptionCore {
     throws GeneralSecurityException {
         Cipher cipher = getAesCipher(AES_GCM_JCENAME);
         GCMParameterSpec gcmSpec = new GCMParameterSpec(AES_GCM_TAG_LENGTH * 8, iv);
-        cipher.init(mode, new SecretKeySpec(key, "AES"), gcmSpec);
+        cipher.init(mode,
+                    new SecretKeySpec(key, "AES"),
+                    gcmSpec);
         cipher.updateAAD(authData);
         return cipher.doFinal(data);
     }
@@ -178,42 +187,42 @@ class EncryptionCore {
     private static void check(byte[] parameter,
                               String parameterName,
                               int expectedLength,
-                              DataEncryptionAlgorithms dataEncryptionAlgorithm)
+                              ContentEncryptionAlgorithms contentEncryptionAlgorithm)
             throws GeneralSecurityException {
         if (parameter == null) {
             throw new GeneralSecurityException("Parameter \"" + parameterName +
                                                "\"=null for " +
-                                               dataEncryptionAlgorithm);
+                                               contentEncryptionAlgorithm.toString());
         }
         if (parameter.length != expectedLength) {
             throw new GeneralSecurityException("Incorrect parameter \"" + parameterName +
                                                "\" length (" + parameter.length + ") for " +
-                                               dataEncryptionAlgorithm);
+                                               contentEncryptionAlgorithm.toString());
         }
     }
  
-    static byte[] createIv(DataEncryptionAlgorithms dataEncryptionAlgorithm) {
-        return CryptoRandom.generateRandom(dataEncryptionAlgorithm.ivLength);
+    public static byte[] createIv(ContentEncryptionAlgorithms contentEncryptionAlgorithm) {
+        return CryptoRandom.generateRandom(contentEncryptionAlgorithm.ivLength);
     }
 
     /**
      * Perform a symmetric key encryption.
-     * @param dataEncryptionAlgorithm Algorithm to use
+     * @param contentEncryptionAlgorithm Algorithm to use
      * @param key Encryption key
      * @param iv Initialization vector
      * @param plainText The data to be encrypted
      * @param authData Additional input factor for authentication
      * @return A composite object including encrypted data
-     * @throws GeneralSecurityException &nbsp;
+     * @throws GeneralSecurityException
      */
     public static SymmetricEncryptionResult 
-            dataEncryption(DataEncryptionAlgorithms dataEncryptionAlgorithm,
-                           byte[] key,
-                           byte[] iv,
-                           byte[] plainText,
-                           byte[] authData) throws GeneralSecurityException {
-        check(key, "key", dataEncryptionAlgorithm.keyLength, dataEncryptionAlgorithm);
-        if (dataEncryptionAlgorithm.gcm) {
+            contentEncryption(ContentEncryptionAlgorithms contentEncryptionAlgorithm,
+                              byte[] key,
+                              byte[] iv,
+                              byte[] plainText,
+                              byte[] authData) throws GeneralSecurityException {
+        check(key, "key", contentEncryptionAlgorithm.keyLength, contentEncryptionAlgorithm);
+        if (contentEncryptionAlgorithm.gcm) {
             byte[] cipherOutput = aesGcmCore(Cipher.ENCRYPT_MODE, key, iv, authData, plainText);
             int tagPos = cipherOutput.length - AES_GCM_TAG_LENGTH;
             byte[] cipherText = ArrayUtil.copy(cipherOutput, tagPos);
@@ -225,36 +234,36 @@ class EncryptionCore {
                                        key,
                                        iv, 
                                        plainText, 
-                                       dataEncryptionAlgorithm);
+                                       contentEncryptionAlgorithm);
         return new SymmetricEncryptionResult(getTag(key, 
                                                     cipherText, 
                                                     iv,
                                                     authData, 
-                                                    dataEncryptionAlgorithm), 
+                                                    contentEncryptionAlgorithm), 
                                               cipherText);
     }
 
     /**
      * Decrypt using a symmetric key.
-     * @param dataEncryptionAlgorithm Algorithm to use
+     * @param contentEncryptionAlgorithm Algorithm to use
      * @param key The encryption key
      * @param cipherText The data to be decrypted
      * @param iv Initialization Vector
      * @param authData Additional input used for authentication purposes
      * @param tag Authentication tag
      * @return The data in clear
-     * @throws GeneralSecurityException &nbsp;
+     * @throws GeneralSecurityException
      */
-    public static byte[] dataDecryption(DataEncryptionAlgorithms dataEncryptionAlgorithm,
-                                        byte[] key,
-                                        byte[] cipherText,
-                                        byte[] iv,
-                                        byte[] authData,
-                                        byte[] tag) throws GeneralSecurityException {
-        check(key, "key", dataEncryptionAlgorithm.keyLength, dataEncryptionAlgorithm);
-        check(iv, "iv", dataEncryptionAlgorithm.ivLength, dataEncryptionAlgorithm);
-        check(tag, "tag", dataEncryptionAlgorithm.tagLength, dataEncryptionAlgorithm);
-        if (dataEncryptionAlgorithm.gcm) {
+    public static byte[] contentDecryption(ContentEncryptionAlgorithms contentEncryptionAlgorithm,
+                                           byte[] key,
+                                           byte[] cipherText,
+                                           byte[] iv,
+                                           byte[] authData,
+                                           byte[] tag) throws GeneralSecurityException {
+        check(key, "key", contentEncryptionAlgorithm.keyLength, contentEncryptionAlgorithm);
+        check(iv, "iv", contentEncryptionAlgorithm.ivLength, contentEncryptionAlgorithm);
+        check(tag, "tag", contentEncryptionAlgorithm.tagLength, contentEncryptionAlgorithm);
+        if (contentEncryptionAlgorithm.gcm) {
             return aesGcmCore(Cipher.DECRYPT_MODE, 
                               key, 
                               iv, 
@@ -265,15 +274,15 @@ class EncryptionCore {
                                            cipherText,
                                            iv, 
                                            authData,
-                                           dataEncryptionAlgorithm))) {
+                                           contentEncryptionAlgorithm))) {
             throw new GeneralSecurityException("Authentication error on algorithm: " + 
-                                               dataEncryptionAlgorithm);
+                                               contentEncryptionAlgorithm.toString());
         }
         return aesCbcCore(Cipher.DECRYPT_MODE, 
                           key, 
                           iv, 
                           cipherText, 
-                          dataEncryptionAlgorithm);
+                          contentEncryptionAlgorithm);
     }
 
     private static byte[] rsaCore(int mode,
@@ -285,8 +294,8 @@ class EncryptionCore {
             throw new GeneralSecurityException(
                     "Unsupported RSA algorithm: " + keyEncryptionAlgorithm);
         }
-        String jceName = keyEncryptionAlgorithm == KeyEncryptionAlgorithms.JOSE_RSA_OAEP_ALG_ID ?
-                JOSE_RSA_OAEP_JCENAME : JOSE_RSA_OAEP_256_JCENAME;
+        String jceName = keyEncryptionAlgorithm == KeyEncryptionAlgorithms.RSA_OAEP ?
+                RSA_OAEP_JCENAME : RSA_OAEP_256_JCENAME;
         Cipher cipher = Cipher.getInstance(jceName);
         cipher.init(mode, key);
         return cipher.doFinal(data);
@@ -294,20 +303,20 @@ class EncryptionCore {
 
     /**
      * Perform an RSA encrypt key operation.
-     * @param dataEncryptionKey Also known as CEK
+     * @param contentEncryptionKey Also known as CEK
      * @param keyEncryptionAlgorithm The RSA encryption algorithm
      * @param publicKey The receiver's (usually static) public key
      * @return A composite object including the (plain text) data encryption key
-     * @throws GeneralSecurityException &nbsp;
+     * @throws GeneralSecurityException
      */
-    static AsymmetricEncryptionResult rsaEncryptKey(byte[] dataEncryptionKey,
-                                                    KeyEncryptionAlgorithms keyEncryptionAlgorithm,
-                                                    PublicKey publicKey)
-    throws GeneralSecurityException {
-        return new AsymmetricEncryptionResult(dataEncryptionKey,
+    public static AsymmetricEncryptionResult rsaEncryptKey(
+            byte[] contentEncryptionKey,
+            KeyEncryptionAlgorithms keyEncryptionAlgorithm,
+            PublicKey publicKey) throws GeneralSecurityException {
+        return new AsymmetricEncryptionResult(contentEncryptionKey,
                                               rsaCore(Cipher.ENCRYPT_MODE,
                                                       publicKey,
-                                                      dataEncryptionKey,
+                                                      contentEncryptionKey,
                                                       keyEncryptionAlgorithm),
                                               null);
     }
@@ -318,7 +327,7 @@ class EncryptionCore {
      * @param encryptedKey Contains a symmetric key used for encrypting the data
      * @param privateKey The RSA private key
      * @return The key in plain text
-     * @throws GeneralSecurityException &nbsp;
+     * @throws GeneralSecurityException
      */
     public static byte[] rsaDecryptKey(KeyEncryptionAlgorithms keyEncryptionAlgorithm,
                                        byte[] encryptedKey,
@@ -330,42 +339,58 @@ class EncryptionCore {
                        keyEncryptionAlgorithm);
     }
 
+    public static byte[] hmacKdf(byte[] ikm, byte[] salt, byte[] info, int keyLength) 
+            throws IOException, GeneralSecurityException {
+        final Mac hmac = Mac.getInstance(HMAC_DIGEST_JCENAME);
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        int reps = (keyLength + KDF_DIGEST_LENGTH - 1) / KDF_DIGEST_LENGTH;
+
+        // HKDF according to RFC 5869 but not equivalent to COSE
+        
+        // 1. Extract
+        if (salt == null || salt.length == 0) {
+            salt = HKDF_NO_SALT;
+        }
+        hmac.init(new SecretKeySpec(salt, "RAW"));
+        byte[] prk = hmac.doFinal(ikm);
+        
+        // 2. Expand
+        byte[] t = new byte[0];
+        for (int i = 1; i <= reps; i++) {
+            hmac.reset();
+            hmac.init(new SecretKeySpec(prk, "RAW"));
+            hmac.update(t);
+            hmac.update(info);
+            hmac.update((byte)i);
+            t = hmac.doFinal();
+            baos.write(t);
+        }
+
+        // Only use as much of the digest that is asked for
+        byte[] okm = new byte[keyLength];
+        System.arraycopy(baos.toByteArray(), 0, okm, 0, keyLength);
+        return okm;
+    }
+
     private static void addInt4(MessageDigest messageDigest, int value) {
         for (int i = 24; i >= 0; i -= 8) {
             messageDigest.update((byte) (value >>> i));
         }
     }
 
-    private static byte[] coreKeyAgreement(KeyEncryptionAlgorithms keyEncryptionAlgorithm,
-                                           DataEncryptionAlgorithms dataEncryptionAlgorithm,
-                                           PublicKey receivedPublicKey,
-                                           PrivateKey privateKey)
-    throws GeneralSecurityException, IOException {
-        // Begin by calculating Z (do the DH)
-        KeyAgreement keyAgreement = KeyAgreement.getInstance("ECDH");
-        keyAgreement.init(privateKey);
-        keyAgreement.doPhase(receivedPublicKey, true);
-        byte[] Z = keyAgreement.generateSecret();
-
-        // NIST Concat KDF
-        final MessageDigest messageDigest = MessageDigest.getInstance(CONCAT_KDF_DIGEST_JCENAME);
-
+    public static byte[] concatKdf(byte[] secret, String joseAlgorithmId, int keyLength) 
+            throws IOException, GeneralSecurityException {
+        byte[] algorithmId = joseAlgorithmId.getBytes("utf-8");
+        final MessageDigest messageDigest = MessageDigest.getInstance(HASH_DIGEST_JCENAME);
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
-
-        byte[] algorithmId = (keyEncryptionAlgorithm.keyWrap ?
-                keyEncryptionAlgorithm : dataEncryptionAlgorithm).toString().getBytes("UTF-8");
-
-        int keyLength = keyEncryptionAlgorithm.keyWrap ?
-                keyEncryptionAlgorithm.keyEncryptionKeyLength : dataEncryptionAlgorithm.keyLength;
-
-        int reps = (keyLength + CONCAT_KDF_DIGEST_LENGTH - 1) / CONCAT_KDF_DIGEST_LENGTH;
+        int reps = (keyLength + KDF_DIGEST_LENGTH - 1) / KDF_DIGEST_LENGTH;
 
         // Concat KDF according to JWA
         for (int i = 1; i <= reps; i++) {
             // Round indicator
             addInt4(messageDigest, i);
             // Z
-            messageDigest.update(Z);
+            messageDigest.update(secret);
             // AlgorithmID = Content encryption algorithm
             addInt4(messageDigest, algorithmId.length);
             messageDigest.update(algorithmId);
@@ -382,33 +407,70 @@ class EncryptionCore {
         byte[] result = new byte[keyLength];
         System.arraycopy(baos.toByteArray(), 0, result, 0, keyLength);
         return result;
+    }    
+
+    private static byte[] coreKeyAgreement(boolean coseMode,
+                                           KeyEncryptionAlgorithms keyEncryptionAlgorithm,
+                                           ContentEncryptionAlgorithms contentEncryptionAlgorithm,
+                                           PublicKey receivedPublicKey,
+                                           PrivateKey privateKey)
+    throws GeneralSecurityException, IOException {
+        // Begin by calculating Z (do the DH)
+        KeyAgreement keyAgreement = KeyAgreement.getInstance("ECDH");
+        keyAgreement.init(privateKey);
+        keyAgreement.doPhase(receivedPublicKey, true);
+        byte[] Z = keyAgreement.generateSecret();
+        int keyLength = keyEncryptionAlgorithm.keyWrap ?
+                keyEncryptionAlgorithm.keyEncryptionKeyLength 
+                                                       : 
+                contentEncryptionAlgorithm.keyLength;
+        if (coseMode) {
+            int coseAlg = keyEncryptionAlgorithm.coseId;
+            return hmacKdf(Z,
+                           null,
+                           new byte[] {(byte)(coseAlg >> 24),
+                                       (byte)(coseAlg >> 16),
+                                       (byte)(coseAlg >> 8),
+                                       (byte)coseAlg},
+                           keyLength);
+        }
+        return concatKdf(Z,
+                         (keyEncryptionAlgorithm.keyWrap ?
+                              keyEncryptionAlgorithm.joseId 
+                                                         : 
+                              contentEncryptionAlgorithm.joseId),
+                         keyLength);
     }
 
     /**
      * Perform a receiver side ECDH operation.
+
+     * @param coseMode True => hmacKdf, else concatKdf
      * @param keyEncryptionAlgorithm The ECDH algorithm
-     * @param dataEncryptionAlgorithm The designated content encryption algorithm
+     * @param contentEncryptionAlgorithm The designated content encryption algorithm
      * @param receivedPublicKey The sender's (usually ephemeral) public key
      * @param privateKey The receiver's private key
      * @param encryptedKeyData For ECDH+KW based operations only
      * @return Shared secret
-     * @throws GeneralSecurityException &nbsp;
+     * @throws GeneralSecurityException
      * @throws IOException
      */
-    public static byte[] receiverKeyAgreement(KeyEncryptionAlgorithms keyEncryptionAlgorithm,
-                                              DataEncryptionAlgorithms dataEncryptionAlgorithm,
-                                              PublicKey receivedPublicKey,
-                                              PrivateKey privateKey,
-                                              byte[] encryptedKeyData)
-    throws GeneralSecurityException, IOException {
+    public static byte[] receiverKeyAgreement(
+            boolean coseMode,
+            KeyEncryptionAlgorithms keyEncryptionAlgorithm,
+            ContentEncryptionAlgorithms contentEncryptionAlgorithm,
+            PublicKey receivedPublicKey,
+            PrivateKey privateKey,
+            byte[] encryptedKeyData) throws GeneralSecurityException, IOException {
         // Sanity check
         if (keyEncryptionAlgorithm.keyWrap ^ (encryptedKeyData != null)) {
             throw new GeneralSecurityException("\"encryptedKeyData\" must " + 
-                    (encryptedKeyData == null ? "not be null" : "be null") + " for algoritm: " +
-                    keyEncryptionAlgorithm);
+                    (encryptedKeyData == null ? "not be null" : "be null") + " for algorithm: " +
+                    keyEncryptionAlgorithm.toString());
         }
-        byte[] derivedKey = coreKeyAgreement(keyEncryptionAlgorithm,
-                                             dataEncryptionAlgorithm,
+        byte[] derivedKey = coreKeyAgreement(coseMode,
+                                             keyEncryptionAlgorithm,
+                                             contentEncryptionAlgorithm,
                                              receivedPublicKey,
                                              privateKey);
         if (keyEncryptionAlgorithm.keyWrap) {
@@ -421,18 +483,21 @@ class EncryptionCore {
 
     /**
      * Perform a sender side ECDH operation.
-     * @param dataEncryptionKey Also known as CEK
+     * 
+     * @param coseMode True => hmacKdf, else concatKdf
+     * @param contentEncryptionKey Also known as CEK
      * @param keyEncryptionAlgorithm The ECDH algorithm
-     * @param dataEncryptionAlgorithm The designated content encryption algorithm
+     * @param contentEncryptionAlgorithm The designated content encryption algorithm
      * @param staticKey The receiver's (usually static) public key
      * @return A composite object including the (plain text) data encryption key
-     * @throws GeneralSecurityException &nbsp;
+     * @throws GeneralSecurityException
      * @throws IOException
      */
-    static AsymmetricEncryptionResult
-            senderKeyAgreement(byte[] dataEncryptionKey,
+    public static AsymmetricEncryptionResult
+            senderKeyAgreement(boolean coseMode,
+                               byte[] contentEncryptionKey,
                                KeyEncryptionAlgorithms keyEncryptionAlgorithm,
-                               DataEncryptionAlgorithms dataEncryptionAlgorithm,
+                               ContentEncryptionAlgorithms contentEncryptionAlgorithm,
                                PublicKey staticKey) 
     throws IOException, GeneralSecurityException {
         AlgorithmParameterSpec paramSpec = 
@@ -440,16 +505,17 @@ class EncryptionCore {
         KeyPairGenerator generator = KeyPairGenerator.getInstance("EC");
         generator.initialize(paramSpec, new SecureRandom());
         KeyPair keyPair = generator.generateKeyPair();
-        byte[] derivedKey = coreKeyAgreement(keyEncryptionAlgorithm,
-                                             dataEncryptionAlgorithm,
+        byte[] derivedKey = coreKeyAgreement(coseMode,
+                                             keyEncryptionAlgorithm,
+                                             contentEncryptionAlgorithm,
                                              staticKey,
                                              keyPair.getPrivate());
         byte[] encryptedKeyData = null;
         if (keyEncryptionAlgorithm.keyWrap) {
             Cipher cipher = getAesCipher(AES_KEY_WRAP_JCENAME);
             cipher.init(Cipher.WRAP_MODE, new SecretKeySpec(derivedKey, "AES"));
-            encryptedKeyData = cipher.wrap(new SecretKeySpec(dataEncryptionKey, "AES"));
-            derivedKey = dataEncryptionKey;
+            encryptedKeyData = cipher.wrap(new SecretKeySpec(contentEncryptionKey, "AES"));
+            derivedKey = contentEncryptionKey;
         }
         return new AsymmetricEncryptionResult(derivedKey, 
                                               encryptedKeyData,
