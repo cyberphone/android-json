@@ -36,9 +36,8 @@ import androidx.appcompat.app.AppCompatActivity;
 
 import org.webpki.crypto.HmacAlgorithms;
 import org.webpki.crypto.AlgorithmPreferences;
-
-import org.webpki.crypto.encryption.ContentEncryptionAlgorithms;
-import org.webpki.crypto.encryption.KeyEncryptionAlgorithms;
+import org.webpki.crypto.ContentEncryptionAlgorithms;
+import org.webpki.crypto.KeyEncryptionAlgorithms;
 
 import org.webpki.json.JSONAsymKeySigner;
 import org.webpki.json.JSONObjectReader;

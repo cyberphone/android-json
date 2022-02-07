@@ -16,9 +16,8 @@ import org.junit.runner.RunWith;
 
 import org.webpki.crypto.AsymSignatureAlgorithms;
 import org.webpki.crypto.HmacAlgorithms;
-
-import org.webpki.crypto.encryption.ContentEncryptionAlgorithms;
-import org.webpki.crypto.encryption.KeyEncryptionAlgorithms;
+import org.webpki.crypto.ContentEncryptionAlgorithms;
+import org.webpki.crypto.KeyEncryptionAlgorithms;
 
 import org.webpki.jose.jws.JWSAsymKeySigner;
 import org.webpki.jose.jws.JWSAsymSignatureValidator;

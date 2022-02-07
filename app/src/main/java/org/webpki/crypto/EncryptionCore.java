@@ -14,7 +14,7 @@
  *  limitations under the License.
  *
  */
-package org.webpki.crypto.encryption;
+package org.webpki.crypto;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -40,9 +40,6 @@ import javax.crypto.Mac;
 import javax.crypto.spec.GCMParameterSpec;
 import javax.crypto.spec.IvParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
-
-import org.webpki.crypto.CryptoRandom;
-import org.webpki.crypto.KeyAlgorithms;
 
 import org.webpki.util.ArrayUtil;
 

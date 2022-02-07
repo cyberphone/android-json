@@ -14,7 +14,7 @@
  *  limitations under the License.
  *
  */
-package org.webpki.crypto.signatures;
+package org.webpki.crypto;
 
 import java.io.IOException;
 
@@ -28,10 +28,6 @@ import java.security.Signature;
 import java.security.interfaces.ECKey;
 
 import java.security.spec.ECParameterSpec;
-
-import org.webpki.crypto.KeyTypes;
-import org.webpki.crypto.KeyAlgorithms;
-import org.webpki.crypto.AsymSignatureAlgorithms;
 
 /**
  * Wrapper over java.security.Signature.
