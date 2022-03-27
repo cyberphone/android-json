@@ -18,6 +18,7 @@ package org.webpki.crypto;
 
 import java.io.IOException;
 
+import java.security.AlgorithmParameters;
 import java.security.GeneralSecurityException;
 import java.security.Key;
 import java.security.KeyFactory;
@@ -28,11 +29,17 @@ import java.security.interfaces.ECPublicKey;
 import java.security.interfaces.RSAKey;
 import java.security.interfaces.RSAPublicKey;
 
+import java.security.spec.ECGenParameterSpec;
 import java.security.spec.ECParameterSpec;
 import java.security.spec.ECPublicKeySpec;
 import java.security.spec.RSAPublicKeySpec;
-import java.security.spec.X509EncodedKeySpec;
 
+// Android specials...
+import android.util.Log;
+
+import java.security.KeyPairGenerator;
+
+import java.security.spec.X509EncodedKeySpec;
 /**
  * Asymmetric key algorithms.
  */
@@ -47,8 +54,7 @@ public enum KeyAlgorithms implements CryptoAlgorithms {
                 false,
                 true,
                 null,
-                KeyTypes.RSA,
-                null),
+                KeyTypes.RSA),
     
     RSA2048    ("https://webpki.github.io/sks/algorithm#rsa2048", 
                 null,
@@ -59,8 +65,7 @@ public enum KeyAlgorithms implements CryptoAlgorithms {
                 true,
                 false,
                 null,
-                KeyTypes.RSA,
-                null),
+                KeyTypes.RSA),
     
     RSA3072    ("https://webpki.github.io/sks/algorithm#rsa3072", 
                 null,
@@ -71,8 +76,7 @@ public enum KeyAlgorithms implements CryptoAlgorithms {
                 false,
                 false,
                 null,
-                KeyTypes.RSA,
-                null),
+                KeyTypes.RSA),
     
     RSA4096    ("https://webpki.github.io/sks/algorithm#rsa4096", 
                 null,
@@ -83,8 +87,7 @@ public enum KeyAlgorithms implements CryptoAlgorithms {
                 false,
                 false,
                 null,
-                KeyTypes.RSA,
-                null),
+                KeyTypes.RSA),
     
     RSA1024_EXP ("https://webpki.github.io/sks/algorithm#rsa1024.exp",
                 null,
@@ -95,8 +98,7 @@ public enum KeyAlgorithms implements CryptoAlgorithms {
                 false,
                 true,
                 null,
-                KeyTypes.RSA,
-                null),
+                KeyTypes.RSA),
     
     RSA2048_EXP ("https://webpki.github.io/sks/algorithm#rsa2048.exp", 
                 null,
@@ -107,8 +109,7 @@ public enum KeyAlgorithms implements CryptoAlgorithms {
                 false,
                 false,
                 null,
-                KeyTypes.RSA,
-                null),
+                KeyTypes.RSA),
     
     RSA3072_EXP ("https://webpki.github.io/sks/algorithm#rsa3072.exp", 
                 null,
@@ -119,8 +120,7 @@ public enum KeyAlgorithms implements CryptoAlgorithms {
                 false,
                 false,
                 null,
-                KeyTypes.RSA,
-                null),
+                KeyTypes.RSA),
     
     RSA4096_EXP ("https://webpki.github.io/sks/algorithm#rsa4096.exp",
                 null,
@@ -131,8 +131,7 @@ public enum KeyAlgorithms implements CryptoAlgorithms {
                 false,
                 false,
                 null,
-                KeyTypes.RSA,
-                null),
+                KeyTypes.RSA),
     
          P_256 ("https://webpki.github.io/sks/algorithm#ec.nist.p256",
                 "P-256",
@@ -143,20 +142,7 @@ public enum KeyAlgorithms implements CryptoAlgorithms {
                 true,
                 false,
                 "1.2.840.10045.3.1.7",
-                KeyTypes.EC,
-                new byte[]
-                   {(byte)0x30, (byte)0x59, (byte)0x30, (byte)0x13, (byte)0x06, (byte)0x07, (byte)0x2A, (byte)0x86,
-                    (byte)0x48, (byte)0xCE, (byte)0x3D, (byte)0x02, (byte)0x01, (byte)0x06, (byte)0x08, (byte)0x2A,
-                    (byte)0x86, (byte)0x48, (byte)0xCE, (byte)0x3D, (byte)0x03, (byte)0x01, (byte)0x07, (byte)0x03,
-                    (byte)0x42, (byte)0x00, (byte)0x04, (byte)0x8B, (byte)0xDF, (byte)0x5D, (byte)0xA2, (byte)0xBE,
-                    (byte)0x57, (byte)0x73, (byte)0xAC, (byte)0x78, (byte)0x86, (byte)0xD3, (byte)0xE5, (byte)0xE6,
-                    (byte)0xC4, (byte)0xA5, (byte)0x6C, (byte)0x32, (byte)0xE2, (byte)0x28, (byte)0xBE, (byte)0xA0,
-                    (byte)0x0F, (byte)0x8F, (byte)0xBF, (byte)0x29, (byte)0x1E, (byte)0xC6, (byte)0x67, (byte)0xB3,
-                    (byte)0x51, (byte)0x99, (byte)0xB7, (byte)0xAD, (byte)0x13, (byte)0x0C, (byte)0x5A, (byte)0x7C,
-                    (byte)0x66, (byte)0x4B, (byte)0x47, (byte)0xF6, (byte)0x1F, (byte)0x41, (byte)0xE9, (byte)0xB3,
-                    (byte)0xB2, (byte)0x40, (byte)0xC0, (byte)0x65, (byte)0xF8, (byte)0x8F, (byte)0x30, (byte)0x0A,
-                    (byte)0xCA, (byte)0x5F, (byte)0xB5, (byte)0x09, (byte)0x6E, (byte)0x95, (byte)0xCF, (byte)0x78,
-                    (byte)0x7C, (byte)0x0D, (byte)0xB2}),
+                KeyTypes.EC),
     
          P_384 ("https://webpki.github.io/sks/algorithm#ec.nist.p384",
                 "P-384",
@@ -167,23 +153,7 @@ public enum KeyAlgorithms implements CryptoAlgorithms {
                 true,
                 false,
                 "1.3.132.0.34",
-                KeyTypes.EC,
-                new byte[]
-                   {(byte)0x30, (byte)0x76, (byte)0x30, (byte)0x10, (byte)0x06, (byte)0x07, (byte)0x2A, (byte)0x86,
-                    (byte)0x48, (byte)0xCE, (byte)0x3D, (byte)0x02, (byte)0x01, (byte)0x06, (byte)0x05, (byte)0x2B,
-                    (byte)0x81, (byte)0x04, (byte)0x00, (byte)0x22, (byte)0x03, (byte)0x62, (byte)0x00, (byte)0x04,
-                    (byte)0x63, (byte)0x5C, (byte)0x35, (byte)0x5C, (byte)0xC0, (byte)0xDF, (byte)0x90, (byte)0x16,
-                    (byte)0xA6, (byte)0x18, (byte)0xF1, (byte)0x50, (byte)0xA7, (byte)0x73, (byte)0xE7, (byte)0x05,
-                    (byte)0x22, (byte)0x36, (byte)0xF7, (byte)0xDC, (byte)0x9F, (byte)0xD8, (byte)0xA5, (byte)0xAC,
-                    (byte)0x71, (byte)0x9F, (byte)0x1C, (byte)0x9A, (byte)0x71, (byte)0x94, (byte)0x8B, (byte)0x81,
-                    (byte)0x15, (byte)0x32, (byte)0x24, (byte)0x92, (byte)0x11, (byte)0x11, (byte)0xDC, (byte)0x7E,
-                    (byte)0x9D, (byte)0x70, (byte)0x1A, (byte)0x9B, (byte)0x83, (byte)0x33, (byte)0x8B, (byte)0x59,
-                    (byte)0xC1, (byte)0x93, (byte)0x34, (byte)0x7F, (byte)0x58, (byte)0x0D, (byte)0x91, (byte)0xC4,
-                    (byte)0xD2, (byte)0x20, (byte)0x8F, (byte)0x64, (byte)0x16, (byte)0x16, (byte)0xEE, (byte)0x07,
-                    (byte)0x51, (byte)0xC3, (byte)0xF8, (byte)0x56, (byte)0x5B, (byte)0xCD, (byte)0x49, (byte)0xFE,
-                    (byte)0xE0, (byte)0xE2, (byte)0xD5, (byte)0xC5, (byte)0x79, (byte)0xD1, (byte)0xA6, (byte)0x18,
-                    (byte)0x82, (byte)0xBD, (byte)0x65, (byte)0x83, (byte)0xB6, (byte)0x84, (byte)0x77, (byte)0xE8,
-                    (byte)0x1F, (byte)0xB8, (byte)0xD7, (byte)0x3D, (byte)0x79, (byte)0x88, (byte)0x2E, (byte)0x98}),
+                KeyTypes.EC),
     
         P_521  ("https://webpki.github.io/sks/algorithm#ec.nist.p521",
                 "P-521",
@@ -194,28 +164,7 @@ public enum KeyAlgorithms implements CryptoAlgorithms {
                 true,
                 false,
                 "1.3.132.0.35",
-                KeyTypes.EC,
-                new byte[]
-                   {(byte)0x30, (byte)0x81, (byte)0x9B, (byte)0x30, (byte)0x10, (byte)0x06, (byte)0x07, (byte)0x2A,
-                    (byte)0x86, (byte)0x48, (byte)0xCE, (byte)0x3D, (byte)0x02, (byte)0x01, (byte)0x06, (byte)0x05,
-                    (byte)0x2B, (byte)0x81, (byte)0x04, (byte)0x00, (byte)0x23, (byte)0x03, (byte)0x81, (byte)0x86,
-                    (byte)0x00, (byte)0x04, (byte)0x01, (byte)0xFC, (byte)0xA0, (byte)0x56, (byte)0x27, (byte)0xB7,
-                    (byte)0x68, (byte)0x25, (byte)0xC5, (byte)0x83, (byte)0xD1, (byte)0x34, (byte)0x0A, (byte)0xAE,
-                    (byte)0x96, (byte)0x1D, (byte)0xDC, (byte)0xE0, (byte)0x95, (byte)0xC5, (byte)0xE0, (byte)0x25,
-                    (byte)0x1F, (byte)0x46, (byte)0xF6, (byte)0x36, (byte)0xD7, (byte)0x3F, (byte)0xD9, (byte)0x5A,
-                    (byte)0x15, (byte)0xE3, (byte)0x05, (byte)0xBA, (byte)0x14, (byte)0x06, (byte)0x1B, (byte)0xEB,
-                    (byte)0xD4, (byte)0x88, (byte)0xFC, (byte)0x0D, (byte)0x87, (byte)0x02, (byte)0x15, (byte)0x4E,
-                    (byte)0x7E, (byte)0xC0, (byte)0x9F, (byte)0xF6, (byte)0x1C, (byte)0x80, (byte)0x2C, (byte)0xE6,
-                    (byte)0x0D, (byte)0xF5, (byte)0x0E, (byte)0x6C, (byte)0xD9, (byte)0x55, (byte)0xFA, (byte)0xBD,
-                    (byte)0x6B, (byte)0x55, (byte)0xA1, (byte)0x0E, (byte)0x00, (byte)0x55, (byte)0x12, (byte)0x35,
-                    (byte)0x8D, (byte)0xFC, (byte)0x0A, (byte)0x42, (byte)0xE5, (byte)0x78, (byte)0x09, (byte)0xD6,
-                    (byte)0xF6, (byte)0x0C, (byte)0xBE, (byte)0x15, (byte)0x0A, (byte)0x7D, (byte)0xC2, (byte)0x2E,
-                    (byte)0x98, (byte)0xA1, (byte)0xE1, (byte)0x6A, (byte)0xF1, (byte)0x1F, (byte)0xD2, (byte)0x9F,
-                    (byte)0x9A, (byte)0x81, (byte)0x65, (byte)0x51, (byte)0x8F, (byte)0x6E, (byte)0xF1, (byte)0x3B,
-                    (byte)0x95, (byte)0x6B, (byte)0xCE, (byte)0x51, (byte)0x09, (byte)0xFF, (byte)0x23, (byte)0xDC,
-                    (byte)0xE8, (byte)0x71, (byte)0x1A, (byte)0x94, (byte)0xC7, (byte)0x8E, (byte)0x4A, (byte)0xA9,
-                    (byte)0x22, (byte)0xA8, (byte)0x87, (byte)0x64, (byte)0xD0, (byte)0x36, (byte)0xAF, (byte)0xD3,
-                    (byte)0x69, (byte)0xAC, (byte)0xCA, (byte)0xCB, (byte)0x1A, (byte)0x96}),
+                KeyTypes.EC),
                     
     SECG_K_256 ("https://webpki.github.io/sks/algorithm#ec.secg.p256k1", 
                 null,
@@ -226,19 +175,7 @@ public enum KeyAlgorithms implements CryptoAlgorithms {
                 false,
                 true,
                 "1.3.132.0.10",
-                KeyTypes.EC,
-                new byte[]
-                   {(byte)0x30, (byte)0x56, (byte)0x30, (byte)0x10, (byte)0x06, (byte)0x07, (byte)0x2A, (byte)0x86,
-                    (byte)0x48, (byte)0xCE, (byte)0x3D, (byte)0x02, (byte)0x01, (byte)0x06, (byte)0x05, (byte)0x2B,
-                    (byte)0x81, (byte)0x04, (byte)0x00, (byte)0x0A, (byte)0x03, (byte)0x42, (byte)0x00, (byte)0x04,
-                    (byte)0xA9, (byte)0xF7, (byte)0xEF, (byte)0x65, (byte)0x26, (byte)0x2F, (byte)0xDB, (byte)0x11,
-                    (byte)0xE3, (byte)0xDA, (byte)0x7C, (byte)0x9D, (byte)0xDF, (byte)0x1F, (byte)0x2E, (byte)0x32,
-                    (byte)0x49, (byte)0x99, (byte)0x4B, (byte)0x02, (byte)0x07, (byte)0x02, (byte)0x78, (byte)0x94,
-                    (byte)0xFF, (byte)0x1C, (byte)0x5A, (byte)0x30, (byte)0xB3, (byte)0x39, (byte)0x44, (byte)0xF4,
-                    (byte)0x50, (byte)0xBE, (byte)0xC9, (byte)0x6C, (byte)0xAE, (byte)0xE6, (byte)0xA5, (byte)0xC0,
-                    (byte)0x8B, (byte)0xF9, (byte)0x29, (byte)0x5B, (byte)0xA0, (byte)0x16, (byte)0xC5, (byte)0x36,
-                    (byte)0xDD, (byte)0xE6, (byte)0xA1, (byte)0x21, (byte)0x6D, (byte)0x80, (byte)0x77, (byte)0xD7,
-                    (byte)0x5B, (byte)0xC1, (byte)0x32, (byte)0x44, (byte)0xA6, (byte)0x32, (byte)0x06, (byte)0xA9}),                       
+                KeyTypes.EC),                       
     
     BRAINPOOL_P_256 (
                 "https://webpki.github.io/sks/algorithm#ec.brainpool.p256r1",
@@ -250,20 +187,7 @@ public enum KeyAlgorithms implements CryptoAlgorithms {
                 false,
                 true,
                 "1.3.36.3.3.2.8.1.1.7",
-                KeyTypes.EC,
-                new byte[]
-                   {(byte)0x30, (byte)0x5A, (byte)0x30, (byte)0x14, (byte)0x06, (byte)0x07, (byte)0x2A, (byte)0x86,
-                    (byte)0x48, (byte)0xCE, (byte)0x3D, (byte)0x02, (byte)0x01, (byte)0x06, (byte)0x09, (byte)0x2B,
-                    (byte)0x24, (byte)0x03, (byte)0x03, (byte)0x02, (byte)0x08, (byte)0x01, (byte)0x01, (byte)0x07,
-                    (byte)0x03, (byte)0x42, (byte)0x00, (byte)0x04, (byte)0x26, (byte)0x3C, (byte)0x91, (byte)0x3F,
-                    (byte)0x6B, (byte)0x91, (byte)0x10, (byte)0x6F, (byte)0xE4, (byte)0xA2, (byte)0x2D, (byte)0xA4,
-                    (byte)0xBB, (byte)0xAB, (byte)0xCE, (byte)0x9E, (byte)0x41, (byte)0x01, (byte)0x0B, (byte)0xB0,
-                    (byte)0xC3, (byte)0x84, (byte)0xEF, (byte)0x35, (byte)0x0D, (byte)0x66, (byte)0xEE, (byte)0x0C,
-                    (byte)0xEC, (byte)0x60, (byte)0xB6, (byte)0xF5, (byte)0x54, (byte)0x54, (byte)0x27, (byte)0x2A,
-                    (byte)0x1D, (byte)0x07, (byte)0x61, (byte)0xB0, (byte)0xC3, (byte)0x01, (byte)0xE8, (byte)0xCB,
-                    (byte)0x52, (byte)0xF5, (byte)0x03, (byte)0xC1, (byte)0x0C, (byte)0x3F, (byte)0xF0, (byte)0x97,
-                    (byte)0xCD, (byte)0xC9, (byte)0x45, (byte)0xF3, (byte)0x21, (byte)0xC5, (byte)0xCF, (byte)0x41,
-                    (byte)0x17, (byte)0xF3, (byte)0x3A, (byte)0xB4}),
+                KeyTypes.EC),
 
     ED25519    ("https://webpki.github.io/sks/algorithm#ed25519", 
                 "Ed25519",
@@ -274,8 +198,7 @@ public enum KeyAlgorithms implements CryptoAlgorithms {
                 false,
                 false,
                 "1.3.101.112",
-                KeyTypes.EDDSA,
-                null),
+                KeyTypes.EDDSA),
 
     ED448      ("https://webpki.github.io/sks/algorithm#ed448", 
                 "Ed448",
@@ -286,8 +209,7 @@ public enum KeyAlgorithms implements CryptoAlgorithms {
                 false,
                 false,
                 "1.3.101.113",
-                KeyTypes.EDDSA,
-                null),
+                KeyTypes.EDDSA),
 
     X25519     ("https://webpki.github.io/sks/algorithm#x25519",
                 "X25519",
@@ -298,8 +220,7 @@ public enum KeyAlgorithms implements CryptoAlgorithms {
                 false,
                 false,
                 "1.3.101.110",
-                KeyTypes.XEC,
-                null),
+                KeyTypes.XEC),
 
     X448       ("https://webpki.github.io/sks/algorithm#x448",
                 "X448",
@@ -310,8 +231,7 @@ public enum KeyAlgorithms implements CryptoAlgorithms {
                 false,
                 false,
                 "1.3.101.111",
-                KeyTypes.XEC,
-                null);
+                KeyTypes.XEC);
 
     private final String sksName;                    // As expressed in SKS
     private final String joseName;                   // As expressed in JOSE.  Only applicable EC curves
@@ -336,8 +256,7 @@ public enum KeyAlgorithms implements CryptoAlgorithms {
                           boolean sksMandatory,
                           boolean deprecated,
                           String ecDomainOid,
-                          KeyTypes keyType,
-                          byte[] samplePublicKey) {
+                          KeyTypes keyType) {
         this.sksName = sksName;
         this.joseName = joseName;
         this.jceName = jceName;
@@ -348,16 +267,25 @@ public enum KeyAlgorithms implements CryptoAlgorithms {
         this.deprecated = deprecated;
         this.ecDomainOid = ecDomainOid;
         this.keyType = keyType;
-        // JDK does not offer a public method for creating EC public keys from
-        // algorithm names + data.  This is a workaround that fortunately works 
-        // with JDK, BC, and Android.
         ECParameterSpec tempEcParmSpec = null;
-        if (samplePublicKey != null) {
+        if (keyType == KeyTypes.EC) {
             try {
-                tempEcParmSpec = ((ECPublicKey) KeyFactory.getInstance("EC").generatePublic(
-                        new X509EncodedKeySpec(samplePublicKey))).getParams();
+                AlgorithmParameters parameters = AlgorithmParameters.getInstance("EC");
+                parameters.init(new ECGenParameterSpec(jceName));
+                tempEcParmSpec = parameters.getParameterSpec(ECParameterSpec.class);
             } catch (Exception e) {
                 if (!deprecated) {
+                    try {
+                        // Android 7 fix...
+                        Log.i("OL1", jceName);
+                        KeyPairGenerator keyGen = KeyPairGenerator.getInstance("EC");
+                        keyGen.initialize(new ECGenParameterSpec(jceName));
+                        tempEcParmSpec = ((ECPublicKey) KeyFactory.getInstance("EC").generatePublic(
+                            new X509EncodedKeySpec(
+                                    keyGen.generateKeyPair().getPublic().getEncoded()))).getParams();
+                    } catch (Exception e1) {
+                        Log.e("OL2", jceName, e);
+                    }
                     new RuntimeException(e);
                 }
             }
